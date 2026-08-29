@@ -33,7 +33,7 @@ async function main(): Promise<void> {
       supplierName: supplier_name,
     });
     console.log(
-      `run ${runId}: ${result.staged} staged, ${result.skipped.length} skipped of ${result.records} records`,
+      `run ${runId}: ${result.staged} staged, ${result.skippedCount} skipped of ${result.records} records`,
     );
   } finally {
     await pool.end();

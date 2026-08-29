@@ -13,12 +13,12 @@ Every channel delivers a complete snapshot file into one R2 bucket; an idempoten
 
 ## 1. Arrival — four channels, one convergence point
 
-- **Push (A):** supplier calls `POST /api/feeds/upload-url` on the Vercel app with their `supplier_id` + API key (bcrypt-compared against the `suppliers` row; the two-credential contract is required because bcrypt hashes can't be looked up by value). The app returns a pre-signed R2 multipart URL scoped to `feeds/{supplier_id}/`; the 5GB file goes straight to R2, never through Vercel (request body limit ~4.5MB).
+- **Push (A):** supplier calls `POST /api/feeds/upload-url` on the Vercel app with their `supplier_id` + API key (bcrypt-compared against the `suppliers` row; the two-credential contract is required because bcrypt hashes can't be looked up by value). The app returns a pre-signed R2 multipart URL scoped to `feeds/{supplier}/`; the 5GB file goes straight to R2, never through Vercel (request body limit ~4.5MB).
 - **Pull (B):** Vercel cron fires a lightweight trigger; the actual multi-minute download streams inside the Cloud Run worker (supplier server → R2), not in a Vercel function.
 - **SFTP (C):** **reserved slot, not built.** When a real SFTP supplier appears: SFTPGo bridge (container/VM) writing to R2 via its S3 API — ~2–3 days of work, purely additive because all channels converge on "file in bucket."
 - **Scrape (D):** the scrape job crawls the supplier's site, accumulates a **complete** catalog, and writes one NDJSON file to the same bucket. It is a feed *producer*, not a second ingestion path — no crawl-in-progress writes to the database, ever.
 
-Bucket layout: `feeds/{supplier_id}/{timestamp}.{xml|ndjson}` — immutable audit trail and replay source.
+Bucket layout: `feeds/{supplier}/{timestamp}.{xml|ndjson}` (supplier = `suppliers.name`; the extension names the Snapshot format and disambiguates same-supplier feeds of different formats) — immutable audit trail and replay source.
 
 ## 2. Trigger — hybrid, idempotent
 

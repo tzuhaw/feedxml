@@ -50,7 +50,7 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<StageResu
         JSON.stringify({
           records: result.records,
           staged: result.staged,
-          skipped: result.skipped.length,
+          skipped: result.skippedCount,
           applied: merged.applied,
         }),
       ],

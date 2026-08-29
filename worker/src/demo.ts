@@ -57,7 +57,7 @@ async function main(): Promise<void> {
        from products where supplier_id = $1 order by product_code`,
       [supplierId],
     );
-    console.log(`staged ${result.staged}, skipped ${result.skipped.length}`);
+    console.log(`staged ${result.staged}, skipped ${result.skippedCount}`);
     console.table(products.rows);
   } finally {
     await pool.end();

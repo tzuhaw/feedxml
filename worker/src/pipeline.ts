@@ -12,9 +12,17 @@ export interface StageResult {
   records: number;
   /** Records staged (valid). */
   staged: number;
-  /** Records present but invalid — Skipped, never Missing (CONTEXT.md). */
+  /** Total Skipped records — present but invalid, never Missing (CONTEXT.md). */
+  skippedCount: number;
+  /**
+   * Evidence sample of Skipped records, capped so a fully-broken 1M-record
+   * Snapshot cannot hold every raw fragment in memory. The cap comfortably
+   * exceeds any per-run Issue volume an admin would review.
+   */
   skipped: SkippedRecord[];
 }
+
+const MAX_SKIPPED_SAMPLES = 1000;
 
 /**
  * The shared streaming core: file → record nodes → per-Feed transform →
@@ -26,7 +34,7 @@ export async function stageSnapshot(
   transform: FeedTransform,
   writer: StagingWriter,
 ): Promise<StageResult> {
-  const result: StageResult = { records: 0, staged: 0, skipped: [] };
+  const result: StageResult = { records: 0, staged: 0, skippedCount: 0, skipped: [] };
 
   await parseXmlRecords(stream, transform.recordElement, async (node) => {
     result.records += 1;
@@ -35,7 +43,10 @@ export async function stageSnapshot(
       await writer.write(withDefaultVariant(outcome.product));
       result.staged += 1;
     } else {
-      result.skipped.push(outcome.skipped);
+      result.skippedCount += 1;
+      if (result.skipped.length < MAX_SKIPPED_SAMPLES) {
+        result.skipped.push(outcome.skipped);
+      }
     }
   });
 

@@ -39,7 +39,11 @@ export class PgStagingWriter implements StagingWriter {
 
   async flush(): Promise<void> {
     if (this.buffer.length === 0) return;
-    const batch = this.buffer;
+    // In-batch dedupe: a multi-row INSERT that hits the same conflict target
+    // twice makes Postgres error ("cannot affect row a second time"), so
+    // last-wins must be applied BEFORE the statement for same-batch duplicates;
+    // ON CONFLICT handles cross-batch duplicates.
+    const batch = [...new Map(this.buffer.map((p) => [p.productCode, p])).values()];
     this.buffer = [];
 
     const cols = 9;

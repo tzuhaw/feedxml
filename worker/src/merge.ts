@@ -25,6 +25,8 @@ export async function mergeRun(
      where s.run_id = $1
      on conflict (supplier_id, product_code) do update set
        status = 'active',
+       -- Reappearance clears a Pin: supplier truth has resumed (CONTEXT.md: Pinned)
+       pinned = false,
        title = excluded.title,
        description = excluded.description,
        brand = excluded.brand,
