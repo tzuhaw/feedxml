@@ -8,6 +8,11 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
  */
 export async function openSnapshot(objectKey: string): Promise<Readable> {
   if (objectKey.startsWith("file:")) {
+    // Local-file reads are a demo/test convenience ONLY. In a deployed worker
+    // an attacker-influenced object_key must never reach the filesystem.
+    if (process.env.ALLOW_FILE_SOURCE !== "1") {
+      throw new Error("file: sources are disabled outside local demos");
+    }
     return createReadStream(objectKey.slice("file:".length));
   }
   const endpoint = process.env.R2_ENDPOINT;

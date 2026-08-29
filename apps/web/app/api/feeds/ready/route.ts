@@ -1,8 +1,16 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { launchWorker } from "@/lib/launcher";
 
 export const runtime = "nodejs";
+
+function secretsMatch(provided: string | null, expected: string): boolean {
+  if (provided === null) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /**
  * Self-report trigger: channels we control call this after completing an
@@ -18,7 +26,7 @@ export const runtime = "nodejs";
  */
 export async function POST(req: Request): Promise<NextResponse> {
   const secret = process.env.INTERNAL_TRIGGER_SECRET;
-  if (!secret || req.headers.get("x-internal-secret") !== secret) {
+  if (!secret || !secretsMatch(req.headers.get("x-internal-secret"), secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

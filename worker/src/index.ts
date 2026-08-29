@@ -25,6 +25,11 @@ async function main(): Promise<void> {
     );
     if (row.rowCount === 0) throw new Error(`run ${runId} not found`);
     const { object_key, supplier_id, supplier_name } = row.rows[0];
+    // The deployed entrypoint only ever reads bucket objects in the canonical
+    // layout; anything else (file:, path tricks) is rejected before I/O.
+    if (!/^feeds\/[^/]+\/[^/]+\.(xml|ndjson)$/.test(object_key)) {
+      throw new Error(`run ${runId} has non-canonical object key`);
+    }
 
     const result = await executeRun(pool, {
       runId,

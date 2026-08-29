@@ -11,6 +11,7 @@ import { executeRun } from "./run.js";
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required for the demo");
+  process.env.ALLOW_FILE_SOURCE = "1"; // local demo reads the fixture from disk
 
   const here = dirname(fileURLToPath(import.meta.url));
   const fixture = resolve(here, "../../fixtures/acme-small.xml");

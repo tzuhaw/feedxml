@@ -15,6 +15,9 @@ import type { RawRecord } from "@feedxml/shared";
  * A rejection from `onRecord` aborts immediately — the async iterator's early
  * exit destroys the source stream, so a dead database stops the download too.
  */
+/** A single product record has no business being this large; ~10M chars is far above any real feed. */
+const MAX_RECORD_CHARS = 10_000_000;
+
 export function parseXmlRecords(
   stream: Readable,
   recordElement: string,
@@ -34,6 +37,17 @@ async function parse(
   // Records completed by the chunk currently being parsed (a handful at most).
   const completed: RawRecord[] = [];
   let parseError: Error | null = null;
+  // Flat-memory guard: one pathological record (a multi-GB element) must fail
+  // the run loudly instead of silently absorbing the whole heap.
+  let recordChars = 0;
+  const guardSize = (added: number) => {
+    recordChars += added;
+    if (recordChars > MAX_RECORD_CHARS) {
+      parseError ??= new Error(
+        `record exceeds ${MAX_RECORD_CHARS} characters — refusing to buffer it`,
+      );
+    }
+  };
 
   parser.onerror = (err) => {
     parseError = err;
@@ -42,6 +56,7 @@ async function parse(
   parser.onopentag = (tag) => {
     const inRecord = stack.length > 0;
     if (!inRecord && tag.name !== recordElement) return;
+    if (!inRecord) recordChars = 0;
     const node: RawRecord = {
       name: tag.name,
       attributes: Object.fromEntries(
@@ -51,12 +66,18 @@ async function parse(
       text: "",
       raw: "",
     };
+    guardSize(
+      node.name.length +
+        Object.entries(node.attributes).reduce((n, [k, v]) => n + k.length + v.length, 0),
+    );
     if (inRecord) stack[stack.length - 1]!.children.push(node);
     stack.push(node);
   };
 
   const appendText = (text: string) => {
-    if (stack.length > 0) stack[stack.length - 1]!.text += text;
+    if (stack.length === 0) return;
+    guardSize(text.length);
+    stack[stack.length - 1]!.text += text;
   };
   parser.ontext = appendText;
   parser.oncdata = appendText;
