@@ -1,0 +1,14 @@
+{
+  "name": "feedxml",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "worker",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/shared -w worker -w apps/web",
+    "test": "npm run test -w worker",
+    "typecheck": "npm run typecheck -w packages/shared -w worker -w apps/web"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@feedxml/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "demo": "npm run build && node dist/demo.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.650.0",
+    "@feedxml/shared": "*",
+    "pg": "^8.13.0",
+    "sax": "^1.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "@types/pg": "^8.11.0",
+    "@types/sax": "^1.2.7",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
