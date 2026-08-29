@@ -85,6 +85,13 @@ async function parse(
   parser.onclosetag = (name) => {
     if (stack.length === 0) return;
     const node = stack.pop()!;
+    if (stack.length > 0) {
+      // Mixed content: bubble the closed child's text into the parent at the
+      // position it occupied, so <p>See <b>manual</b> now</p> reads whole via
+      // childText. (Evidence serialization may repeat bubbled text; payload
+      // correctness outweighs that cosmetic quirk.)
+      stack[stack.length - 1]!.text += node.text;
+    }
     if (stack.length === 0 && name === recordElement) {
       // `raw` is only read on Skip verdicts — serialize lazily, cache on first use.
       let cached: string | undefined;

@@ -51,6 +51,12 @@ describe("walking skeleton: fixture Snapshot through the streaming core", () => 
     expect(shoe?.attributes).toEqual({ color: "blue", terrain: "trail" });
   });
 
+  it("keeps inline-element text in mixed content (no silently dropped words)", async () => {
+    const { writer } = await stageFixture();
+    const shoe = writer.rows.find((r) => r.productCode === "ACME-001");
+    expect(shoe?.description).toBe("Lightweight trail shoe with rock plate tech.");
+  });
+
   it("gives variant-less products one implicit default Variant", async () => {
     const { writer } = await stageFixture();
     const bottle = writer.rows.find((r) => r.productCode === "ACME-002");

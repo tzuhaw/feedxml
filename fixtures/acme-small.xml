@@ -2,7 +2,7 @@
 <catalog supplier="acme" generated="2026-08-29T06:00:00Z">
   <product code="ACME-001">
     <title>Trail Running Shoe</title>
-    <description>Lightweight trail shoe with rock plate.</description>
+    <description>Lightweight trail shoe with <b>rock plate</b> tech.</description>
     <brand>Acme Athletics</brand>
     <variants>
       <variant sku="ACME-001-42-BLU" gtin="4006381333931">
