@@ -593,6 +593,10 @@ a.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
     gap: 0.75rem;
     align-items: baseline;
     padding: 0.3rem 0.7rem;
+    /* Object keys and URLs have no spaces to break at. Without this they set
+       the grid's minimum width and the whole page scrolls sideways. */
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .panel-table td::before {
     content: attr(data-label);
@@ -708,6 +712,13 @@ a.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
 .act-primary:hover { filter: brightness(1.08); }
 .act-danger { color: var(--danger); border-color: var(--danger); background: var(--surface); }
 .act-danger:hover { background: var(--danger-soft); }
+.act:disabled {
+  opacity: 0.45;
+  cursor: default;
+  filter: none;
+}
+.act:disabled:hover { border-color: var(--border-strong); filter: none; }
+.act-primary:disabled:hover { border-color: var(--accent); }
 
 /* Products page filter */
 .panel input[type="text"], .panel input:not([type]) {
@@ -732,7 +743,11 @@ a.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
   .act-row form { width: 100%; }
   .act { width: 100%; }
   .counts { font-size: 0.72rem; }
-  .panel input { width: 100%; }
+  /* Text inputs only. A bare `.panel input` also caught the visually-hidden
+     file input on the upload page and stretched it to the full width, which
+     pushed the page into a sideways scroll. */
+  .panel input[type="text"],
+  .panel input:not([type]) { width: 100%; }
   .tiles { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.6rem; }
   .tile { padding: 0.8rem 0.9rem; }
   .tile-figure { font-size: 1.6rem; }
@@ -758,6 +773,7 @@ a.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
 }
 
 .drop {
+  position: relative;
   border: 1.5px dashed var(--border-strong);
   border-radius: 8px;
   background: var(--sunk);
