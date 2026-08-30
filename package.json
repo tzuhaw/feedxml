@@ -8,8 +8,16 @@
     "apps/web"
   ],
   "scripts": {
-    "build": "npm run build -w packages/shared -w packages/domain -w worker -w apps/web",
+    "build": "npm run build -w packages/shared && npm run build -w packages/domain && npm run build -w worker && npm run build -w apps/web",
     "test": "npm run test -w worker",
-    "typecheck": "npm run typecheck -w packages/shared -w packages/domain -w worker -w apps/web"
+    "typecheck": "npm run typecheck -w packages/shared -w packages/domain -w worker -w apps/web",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:reset": "node scripts/migrate.mjs --reset",
+    "dev:setup": "npm run db:up && npm run build -w packages/shared && npm run build -w packages/domain && npm run db:migrate"
+  },
+  "devDependencies": {
+    "pg": "^8.13.0"
   }
 }
