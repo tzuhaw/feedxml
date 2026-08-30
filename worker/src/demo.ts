@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { Pool } from "pg";
+import { approveRun, previewApply } from "@feedxml/domain";
 import { executeRun } from "./run.js";
 
 /**
@@ -60,16 +61,41 @@ async function main(): Promise<void> {
     });
     if (!result) throw new Error("demo run was superseded — unexpected");
 
+    console.log(
+      `\n1. Staged ${result.staged} unique products, skipped ${result.skippedCount}, ` +
+        `${result.duplicateCount} duplicate code` +
+        (halted ? "\n   → HALTED: nothing applied, a human must decide." : ""),
+    );
+
+    const issues = await pool.query(
+      `select scope, coalesce(product_code, '—') as product_code, reason
+       from issues where run_id = $1 order by scope, reason`,
+      [runId],
+    );
+    console.log("\n2. Issues raised (evidence is stored alongside each):");
+    console.table(issues.rows);
+
+    if (halted) {
+      const preview = await previewApply(pool, runId, supplierId);
+      console.log("\n3. Consequence Preview — exactly what approving would do:");
+      console.table([preview]);
+
+      console.log("\n4. Approving as an admin would…");
+      await approveRun(pool, runId, "admin:demo");
+    }
+
     const products = await pool.query(
-      `select product_code, status, title, jsonb_array_length(variants) as variant_count
+      `select product_code, status, title, jsonb_array_length(variants) as variants,
+              jsonb_array_length(images) as images
        from products where supplier_id = $1 order by product_code`,
       [supplierId],
     );
-    console.log(
-      `staged ${result.staged} unique, skipped ${result.skippedCount}, duplicates ${result.duplicateCount}` +
-        (halted ? " — HALTED awaiting review" : ""),
-    );
+    console.log("\n5. The catalog now:");
     console.table(products.rows);
+
+    const finalRun = await pool.query(`select state, counts from feed_runs where id = $1`, [runId]);
+    console.log(`\n   run state: ${finalRun.rows[0].state}`);
+    console.log(`   counts: ${JSON.stringify(finalRun.rows[0].counts)}`);
   } finally {
     await pool.end();
   }
