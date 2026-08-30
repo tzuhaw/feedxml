@@ -48,6 +48,20 @@ export interface ScrapeAdapter {
    * otherwise redirect our crawler anywhere.
    */
   allowedHosts?: string[];
+  /**
+   * Fraction of visited pages that may fail to yield a product before the
+   * crawl refuses to publish (default 2%).
+   *
+   * This exists because the scrape channel CANNOT express Skipped. In a feed,
+   * a present-but-unparseable record keeps its product alive on last known
+   * good state and raises a Record Issue. A page we fetch but can't parse
+   * produces no line at all — so to the Deactivation Sweep the product is
+   * Missing, and it goes inactive with no Issue and no email. A supplier
+   * changing one selector could otherwise deactivate a slice of the catalog
+   * silently, so a scattered parse/fetch failure rate is treated as evidence
+   * the crawl is not a complete catalog.
+   */
+  maxLossRatio?: number;
 }
 
 export interface ScrapeContext {
@@ -59,7 +73,10 @@ export interface ScrapeResult {
   objectKey: string;
   products: number;
   pagesFetched: number;
+  /** Pages that could not be fetched. */
   failures: number;
+  /** Pages fetched successfully that yielded no product record. */
+  unparsed: number;
 }
 
 const MAX_CONSECUTIVE_FAILURES = 10;
@@ -73,6 +90,7 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
   const delay = adapter.requestDelayMs ?? 1000;
   let pagesFetched = 0;
   let failures = 0;
+  let unparsed = 0;
   let consecutiveFailures = 0;
   let lastRequestAt = 0;
 
@@ -148,7 +166,10 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
       }
 
       const record = adapter.parseProduct(html, url, ctx);
-      if (record === null || record === undefined) continue;
+      if (record === null || record === undefined) {
+        unparsed += 1;
+        continue;
+      }
       if (!out.write(`${JSON.stringify(record)}\n`)) {
         await Promise.race([once(out, "drain"), writeFailed]);
       }
@@ -168,10 +189,23 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
       );
     }
 
+    // Loss ratio: pages we visited but got nothing from. These would reach the
+    // catalog as Missing (deactivated), never as Skipped — see maxLossRatio.
+    const lost = unparsed + failures;
+    const visited = products + lost;
+    const lossRatio = visited === 0 ? 0 : lost / visited;
+    const maxLoss = adapter.maxLossRatio ?? 0.02;
+    if (lossRatio > maxLoss) {
+      throw new Error(
+        `crawl lost ${lost} of ${visited} pages (${(lossRatio * 100).toFixed(1)}%, limit ${(maxLoss * 100).toFixed(1)}%) — ` +
+          `those products would be deactivated as Missing, so this is not a complete catalog; not publishing`,
+      );
+    }
+
     const objectKey = buildObjectKey(adapter.supplierName, Date.now(), "ndjson");
     await uploadSnapshot(path, objectKey);
     ctx.log(`published ${products} products to ${objectKey}`);
-    return { objectKey, products, pagesFetched, failures };
+    return { objectKey, products, pagesFetched, failures, unparsed };
   } finally {
     out.destroy();
     await rm(dir, { recursive: true, force: true }).catch(() => {

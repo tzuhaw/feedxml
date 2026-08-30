@@ -161,17 +161,28 @@ the job's memory limit.
 ## 5. When something looks stuck
 
 - **A run sits in `staging`/`merging` for ages** — the sweep raises a Run Issue
-  once it passes `max(30 min, 2× the recent p95)`. Check the Cloud Run logs for
-  that run id. It is safe to let the retry mechanism handle it.
+  once that run has made no progress for `max(30 min, 2× that feed's own recent
+  p95)`. Nothing retries it automatically: a killed worker leaves a run nothing
+  will ever move again, and for a pull feed that also blocks all future
+  scheduling. Check the Cloud Run logs for the run id, then use **Retry** on
+  the run — in-flight runs become retryable once stuck for 30 minutes, and
+  retrying closes the stuck Issue. Retrying is safe: it restarts the run from
+  scratch (restart-everything).
 - **No runs at all for a feed** — check Admin → Feeds (`active`?), then that
   the sweep is running (GitHub Actions → sweep workflow), then that
   `CLOUD_RUN_JOB_URL` is set. The sweep relaunches runs stuck in `pending`.
 - **The sweep workflow is red** — it returns 500 when any step fails; the body
   names the step. Steps are independent, so the others still ran.
-- **Ingestion is slow** — Runs page shows the duration trend. The measured
-  baseline is **1M products in ~5 minutes**; if a comparable feed is taking
-  dramatically longer, that is the signal to revisit fan-out (deliberately
-  deferred while there is ~10× headroom against the one-hour target).
+- **Ingestion is slow** — the design target is **15–30 minutes for 1M
+  products**, and the freshness SLA is one hour. Judge against *that*, not
+  against the lab number: the load test ingests 1M products in ~5 minutes, but
+  it reads a local file into a local Postgres with validation thresholds
+  disabled, so it excludes object-storage streaming and the remote database
+  round trips that dominate production. Treat it as a floor for the parsing
+  path, not a production baseline. The signal to revisit fan-out is a feed
+  trending toward the one-hour window, not a gap from 5 minutes.
+  (The Runs page's duration figure is a global average across feeds, so
+  compare a feed against its own history rather than that number.)
 
 ---
 

@@ -114,7 +114,7 @@ replay procedures, and the supplier-onboarding checklist — is [RUNBOOK.md](RUN
 ## Deferred by design (slots reserved, zero build today)
 
 - SFTP bridge
-- Fan-out parallelism / checkpoint-resume — measured headroom is ~10× (1M products in ~5 min against a one-hour target), so the trigger is a sustained duration trend, not a guess
+- Fan-out parallelism / checkpoint-resume — the load test does 1M products in ~5 min, but from a local file into a local Postgres with thresholds disabled, so it measures the parsing path only and is a floor, not a production baseline. The trigger is a real feed trending toward the one-hour freshness window
 - Image rehost pipeline
 - Variant/image child tables (promote from jsonb on demand)
 - Mapping DSL

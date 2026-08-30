@@ -14,14 +14,14 @@ export async function resolveFeedForKey(
 ): Promise<{ feedId: string } | null> {
   const parsed = parseObjectKey(objectKey);
   if (!parsed) return null;
-  // Push-arrival keys prefer the push feed: a supplier may legitimately have
-  // both a push and a pull feed of the same format (pull runs never resolve
-  // by key — the sweep registers them with an explicit feed id).
+  // An object key carries supplier and format but not channel, so routing is
+  // (supplier, format) — which migration 0009 makes unique among active feeds
+  // precisely so this cannot be ambiguous.
   const feed = await pool.query(
     `select f.id from feeds f
      join suppliers s on s.id = f.supplier_id
      where s.name = $1 and f.active and f.format = $2::snapshot_format
-     order by (f.channel = 'push') desc, f.created_at limit 1`,
+     limit 1`,
     [parsed.supplierName, parsed.format],
   );
   return feed.rowCount === 0 ? null : { feedId: feed.rows[0].id };

@@ -127,17 +127,22 @@ export async function GET(req: Request): Promise<NextResponse> {
   // 4. Stuck-run detector: flag, never touch state (a human decides).
   try {
     const stuck = await pool.query(
-      `with p95 as (
-         select coalesce(percentile_cont(0.95) within group
-                  (order by extract(epoch from updated_at - created_at)), 0) as secs
-         from (select updated_at, created_at from feed_runs
-               where state = 'done' order by updated_at desc limit 50) recent
-       )
-       insert into issues (scope, run_id, supplier_id, reason)
+      // The baseline is PER FEED — a 20-second feed must not inherit a 25-minute
+      // supplier's p95 — and measures time since the run last made progress,
+      // not since registration (which would include queue time and inflate the
+      // bar exactly during a launcher outage).
+      `insert into issues (scope, run_id, supplier_id, reason)
        select 'run', r.id, f.supplier_id,
               'run appears stuck in ' || r.state || ' since ' || r.updated_at::text
        from feed_runs r
-       join feeds f on f.id = r.feed_id, p95
+       join feeds f on f.id = r.feed_id
+       cross join lateral (
+         select coalesce(percentile_cont(0.95) within group
+                  (order by extract(epoch from updated_at - created_at)), 0) as secs
+         from (select updated_at, created_at from feed_runs prior
+               where prior.feed_id = r.feed_id and prior.state = 'done'
+               order by prior.updated_at desc limit 20) recent
+       ) p95
        where r.state in ('downloading', 'staging', 'validating', 'merging')
          and r.updated_at < now() - greatest(interval '30 minutes', make_interval(secs => 2 * p95.secs))
          and not exists (select 1 from issues i

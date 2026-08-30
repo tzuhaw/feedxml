@@ -111,9 +111,18 @@ export async function rejectRunAction(formData: FormData): Promise<void> {
 export async function retryRunAction(formData: FormData): Promise<void> {
   const runId = requireId(formData, "runId");
   const pool = getPool();
+  // Retryable: a failed run, or one abandoned mid-flight (the worker was
+  // killed, so nothing will ever move it again — without this a stuck run is
+  // permanent, and for a pull feed it blocks all future scheduling).
+  // `attempt` resets: otherwise the failure email, which fires at exactly
+  // MAX_ATTEMPTS, could never fire again for this run.
   const claim = await pool.query(
-    `update feed_runs set state = 'pending', error = null, updated_at = now()
-     where id = $1 and state = 'failed' returning id`,
+    `update feed_runs set state = 'pending', error = null, attempt = 0, updated_at = now()
+     where id = $1
+       and (state = 'failed'
+            or (state in ('downloading', 'staging', 'validating', 'merging')
+                and updated_at < now() - interval '30 minutes'))
+     returning id`,
     [runId],
   );
   if (claim.rowCount === 0) {
@@ -121,9 +130,16 @@ export async function retryRunAction(formData: FormData): Promise<void> {
     throw new Error(
       run.rowCount === 0
         ? `run ${runId} not found`
-        : `only failed runs can be retried (this run is ${run.rows[0].state})`,
+        : `cannot retry a run that is ${run.rows[0].state} (in-flight runs become retryable once stuck for 30 minutes)`,
     );
   }
+  // A stuck-run Issue is scope 'run' and so cannot be hand-resolved; retrying
+  // is the action that answers it, so it closes here.
+  await pool.query(
+    `update issues set status = 'resolved', resolution = 'retried by admin', resolved_at = now()
+     where run_id = $1 and scope = 'run' and status = 'open' and reason like 'run appears stuck%'`,
+    [runId],
+  );
   await pool.query(`insert into audit_log (actor, action, subject) values ($1, 'retry_run', $2)`, [
     await actor(),
     JSON.stringify({ run_id: runId }),
