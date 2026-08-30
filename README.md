@@ -11,13 +11,36 @@ Canonical vocabulary: [CONTEXT.md](CONTEXT.md). Delivery plan: [SPRINT-PLAN.md](
 - `supabase/migrations` — database schema
 - `fixtures` — sample Snapshots used by tests and local demos
 
-## Walking-skeleton demo (Sprint 1)
+## Running it
 
 ```
 npm install
-npm test                      # streaming core against fixtures, no DB needed
-npm run demo -w worker        # fixture XML -> staging -> merge against DATABASE_URL
+npm run build -w packages/shared && npm run build -w packages/domain
+npm test                      # streaming core + thresholds; no database needed
 ```
 
-The worker reads either a local file (`file:` source, demos/tests) or R2 via the S3 API
-(`R2_*` env vars). `DATABASE_URL` points at Supabase Postgres (direct connection).
+Copy `.env.example` to `.env.local` and fill in `DATABASE_URL`, `ADMIN_USER`,
+`ADMIN_PASSWORD`, then:
+
+```
+npm run dev -w apps/web       # admin panel at http://localhost:3000/admin
+npm run demo -w worker        # fixture XML -> staging -> merge, prints the result
+```
+
+The integration suite needs a disposable Postgres (it rebuilds the schema from
+`supabase/migrations/`), which is why CI runs it against a service container:
+
+```
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm test
+```
+
+The worker reads a local file (`file:` source, demos and tests only) or R2 via the
+S3 API. Deployment targets are Vercel for `apps/web` and a Cloud Run Job for
+`worker`, but neither is required to run or evaluate the system locally.
+
+## Documents
+
+- [DESIGN.md](DESIGN.md) — the architecture and a decision log of every choice
+- [CONTEXT.md](CONTEXT.md) — the glossary; the words mean exactly these things
+- [RUNBOOK.md](RUNBOOK.md) — how ops answers an alert, replays a feed, onboards a supplier
+- [SPRINT-PLAN.md](SPRINT-PLAN.md) — how the build was sequenced
