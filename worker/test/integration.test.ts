@@ -11,6 +11,7 @@ import {
   type FixtureProduct,
 } from "./helpers/harness.js";
 import { approveRun, rejectRun, reverseDeactivation } from "../src/admin.js";
+import { executeRun } from "../src/run.js";
 
 process.env.ALLOW_FILE_SOURCE = "1";
 
@@ -216,6 +217,85 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
       `select 1 from audit_log where action = 'reactivate' and subject->>'product_code' = 'B'`,
     );
     expect(audit.rowCount).toBe(1);
+  });
+
+  it("a product with a valid AND a malformed record in one Snapshot does not streak", async () => {
+    const feed = await seedFeed(pool, "s-both", LOOSE, 1);
+    await runSnapshot(pool, feed, [good("A"), good("X", "old")]);
+    await runSnapshot(pool, feed, [good("A"), good("X", "new"), badTitle("X")]);
+
+    const x = await product(pool, feed, "X");
+    expect(x).toMatchObject({ status: "active", title: "new", skip_streak: 0 });
+    const issues = await pool.query(
+      `select count(*)::int as n from issues where supplier_id = $1 and scope = 'product'`,
+      [feed.supplierId],
+    );
+    expect(issues.rows[0].n).toBe(0); // even at skip_streak_limit = 1
+  });
+
+  it("retrying the same Run does not double-bump skip streaks (restart-everything idempotency)", async () => {
+    const feed = await seedFeed(pool, "s-retry", LOOSE);
+    await runSnapshot(pool, feed, [good("A"), good("X")]);
+    const { ctx } = await runSnapshot(pool, feed, [good("A"), badTitle("X")]);
+    expect((await product(pool, feed, "X"))?.skip_streak).toBe(1);
+
+    // Simulate a Cloud Run retry: re-execute the same Run from scratch —
+    // its streak contribution must not be counted twice.
+    await executeRun(pool, ctx);
+    expect((await product(pool, feed, "X"))?.skip_streak).toBe(1);
+  });
+
+  it("approving a stale Halted run is refused once a newer run exists", async () => {
+    const feed = await seedFeed(pool, "s-stale");
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+    const { runId: staleId, halted } = await runSnapshot(pool, feed, [good("A")]);
+    expect(halted).toBe(true);
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+
+    await expect(approveRun(pool, staleId, "admin:test@example.com")).rejects.toThrow(/stale/);
+    expect((await product(pool, feed, "B"))?.status).toBe("active");
+    // Reject stays available for the stale run.
+    await rejectRun(pool, staleId, "admin:test@example.com");
+  });
+
+  it("partial per-feed thresholds fall back to defaults instead of disabling rules", async () => {
+    const feed = await seedFeed(pool, "s-partial", { maxErrorRate: 0.9 }); // count-drop key absent
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+    const { halted, runId } = await runSnapshot(pool, feed, [good("A")]);
+    expect(halted).toBe(true); // default maxCountDrop 0.2 still applies
+    const issue = await pool.query(
+      `select reason from issues where run_id = $1 and scope = 'run'`,
+      [runId],
+    );
+    expect(issue.rows[0].reason).toContain("count_drop");
+  });
+
+  it("code-less Record Issues resolve as superseded once a later run applies", async () => {
+    const feed = await seedFeed(pool, "s-codeless", LOOSE);
+    const { runId: first } = await runSnapshot(pool, feed, [good("A"), { title: "no code" }]);
+    const open = await pool.query(
+      `select id from issues where run_id = $1 and product_code is null and status = 'open'`,
+      [first],
+    );
+    expect(open.rowCount).toBe(1);
+
+    await runSnapshot(pool, feed, [good("A")]);
+    const resolved = await pool.query(
+      `select status, resolution from issues where run_id = $1 and product_code is null`,
+      [first],
+    );
+    expect(resolved.rows[0].status).toBe("resolved");
+    expect(resolved.rows[0].resolution).toContain("superseded by run");
+  });
+
+  it("a successfully retried run clears its stale error message", async () => {
+    const feed = await seedFeed(pool, "s-error-clear", LOOSE);
+    const { runId, ctx } = await runSnapshot(pool, feed, [good("A")]);
+    await pool.query(`update feed_runs set state = 'failed', error = 'connect ETIMEDOUT' where id = $1`, [runId]);
+
+    await executeRun(pool, ctx);
+    const run = await pool.query(`select state, error from feed_runs where id = $1`, [runId]);
+    expect(run.rows[0]).toMatchObject({ state: "done", error: null });
   });
 
   it("a Record Issue auto-resolves when the product later ingests cleanly", async () => {

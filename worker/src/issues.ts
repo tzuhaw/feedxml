@@ -1,6 +1,5 @@
 import type { Pool } from "pg";
 import type { SkippedRecord } from "@feedxml/shared";
-import type { DuplicateRecord } from "./pipeline.js";
 import type { Breach } from "./validate.js";
 
 /**
@@ -15,7 +14,7 @@ export async function writeRecordIssues(
   runId: string,
   supplierId: string,
   skipped: SkippedRecord[],
-  duplicates: DuplicateRecord[],
+  duplicates: string[],
 ): Promise<void> {
   for (let i = 0; i < skipped.length; i += 200) {
     const batch = skipped.slice(i, i + 200);
@@ -43,7 +42,7 @@ export async function writeRecordIssues(
       `insert into issues (scope, run_id, supplier_id, product_code, reason)
        select 'record', $1, $2, unnest($3::text[]),
               'duplicate Product Code within one Snapshot (last occurrence wins)'`,
-      [runId, supplierId, [...new Set(duplicates.map((d) => d.productCode))]],
+      [runId, supplierId, [...new Set(duplicates)]],
     );
   }
 }
@@ -69,8 +68,14 @@ export async function openRunIssue(
 /**
  * Increment skip streaks for products Skipped this Run and raise a Product
  * Issue for any that reach the per-Feed limit (unless one is already open).
- * Only known products streak — a never-ingested product has no row and
- * surfaces through its Record Issues instead.
+ *
+ * Rules that keep this honest:
+ * - Idempotent per Run: `last_skipped_run` refuses a second bump from a retry
+ *   of the same Run (restart-everything).
+ * - A product that ALSO staged cleanly this Run (valid + stray malformed
+ *   record in one Snapshot) is not Skipped in the glossary sense — excluded.
+ * - Only known products streak; a never-ingested product has no row and
+ *   surfaces through its Record Issues instead.
  */
 export async function bumpSkipStreaks(
   pool: Pool,
@@ -79,10 +84,13 @@ export async function bumpSkipStreaks(
   skipStreakLimit: number,
 ): Promise<void> {
   await pool.query(
-    `update products p set skip_streak = p.skip_streak + 1, updated_at = now()
-     where p.supplier_id = $2
-       and exists (select 1 from staging_skipped k
-                   where k.run_id = $1 and k.product_code = p.product_code)`,
+    `update products p
+     set skip_streak = p.skip_streak + 1, last_skipped_run = $1, updated_at = now()
+     from staging_skipped k
+     where k.run_id = $1 and p.supplier_id = $2 and p.product_code = k.product_code
+       and p.last_skipped_run is distinct from $1
+       and not exists (select 1 from staging_products s
+                       where s.run_id = $1 and s.product_code = p.product_code)`,
     [runId, supplierId],
   );
   await pool.query(
@@ -90,10 +98,11 @@ export async function bumpSkipStreaks(
      select 'product', $1, $2, p.product_code,
             'skipped ' || p.skip_streak || ' consecutive runs — review the source data'
      from products p
+     join staging_skipped k on k.run_id = $1 and k.product_code = p.product_code
      where p.supplier_id = $2
        and p.skip_streak >= $3
-       and exists (select 1 from staging_skipped k
-                   where k.run_id = $1 and k.product_code = p.product_code)
+       and not exists (select 1 from staging_products s
+                       where s.run_id = $1 and s.product_code = p.product_code)
        and not exists (select 1 from issues i
                        where i.status = 'open' and i.scope = 'product'
                          and i.supplier_id = $2 and i.product_code = p.product_code)`,
@@ -105,24 +114,35 @@ export async function bumpSkipStreaks(
  * Auto-resolution (CONTEXT.md): Record and Product Issues close themselves
  * when the same product ingests cleanly in a later Run. Issues raised by THIS
  * Run are excluded — a duplicate logged today shouldn't vanish today.
+ * Code-less Record Issues (product_code null) have no product to ingest
+ * cleanly; they resolve as superseded once a later Run applies, so evidence
+ * of transient export glitches doesn't accumulate forever.
  */
 export async function autoResolveIssues(
   pool: Pool,
   runId: string,
   supplierId: string,
 ): Promise<number> {
-  const res = await pool.query(
+  const byIngest = await pool.query(
     `update issues i
      set status = 'resolved', resolution = 'resolved by run ' || $1, resolved_at = now()
      where i.status = 'open'
        and i.scope in ('record', 'product')
        and i.supplier_id = $2
        and i.run_id is distinct from $1
-       and i.product_code in
-         (select s.product_code from staging_products s where s.run_id = $1)`,
+       and i.product_code is not null
+       and exists (select 1 from staging_products s
+                   where s.run_id = $1 and s.product_code = i.product_code)`,
     [runId, supplierId],
   );
-  return res.rowCount ?? 0;
+  const codeless = await pool.query(
+    `update issues
+     set status = 'resolved', resolution = 'superseded by run ' || $1, resolved_at = now()
+     where status = 'open' and scope = 'record' and supplier_id = $2
+       and product_code is null and run_id is distinct from $1`,
+    [runId, supplierId],
+  );
+  return (byIngest.rowCount ?? 0) + (codeless.rowCount ?? 0);
 }
 
 /** Resolve this Run's feed-level Issue with a verdict (approved / rejected / superseded). */

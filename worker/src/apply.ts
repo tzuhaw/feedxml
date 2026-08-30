@@ -2,6 +2,23 @@ import type { Pool } from "pg";
 import { mergeRun } from "./merge.js";
 import { autoResolveIssues, bumpSkipStreaks } from "./issues.js";
 
+/**
+ * THE definition of Missing for a Run: no record at all in the Snapshot —
+ * neither staged nor Skipped (CONTEXT.md). Single source of truth shared by
+ * the validation count, the Deactivation Sweep, and (Sprint 4) the
+ * Consequence Preview, so what a reviewer approves is definitionally what
+ * the sweep acts on. Consuming queries bind $1 = run_id; `alias` names their
+ * products relation. The sweep ADDITIONALLY excludes Pinned products — a
+ * deliberate difference: `missing` measures snapshot truth, the sweep
+ * respects human exceptions.
+ */
+export function notInSnapshotSql(alias: string): string {
+  return `not exists (select 1 from staging_products s
+                      where s.run_id = $1 and s.product_code = ${alias}.product_code)
+          and not exists (select 1 from staging_skipped k
+                          where k.run_id = $1 and k.product_code = ${alias}.product_code)`;
+}
+
 export interface ApplyResult {
   creates: number;
   updates: number;
@@ -61,10 +78,7 @@ export async function applyRun(
        where p.supplier_id = $2
          and p.status = 'active'
          and not p.pinned
-         and not exists (select 1 from staging_products s
-                         where s.run_id = $1 and s.product_code = p.product_code)
-         and not exists (select 1 from staging_skipped k
-                         where k.run_id = $1 and k.product_code = p.product_code)
+         and ${notInSnapshotSql("p")}
        returning p.product_code
      )
      insert into audit_log (actor, action, subject)

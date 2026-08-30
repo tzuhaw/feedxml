@@ -46,7 +46,10 @@ create table feed_runs (
   state run_state not null default 'pending',
   attempt int not null default 0,
   error text,
-  -- populated at validation: {records, staged, skipped, missing, creates, updates, deactivations}
+  -- Merged across phases. Validation: {records, staged, skipped, duplicates,
+  -- missing, activeBefore, previousStaged, breaches?}. Apply: {creates,
+  -- updates, reactivated, unpinned, deactivated, issuesAutoResolved,
+  -- approvedBy?}. `staged` counts UNIQUE Product Codes.
   counts jsonb,
   superseded_by uuid references feed_runs (id),
   created_at timestamptz not null default now(),

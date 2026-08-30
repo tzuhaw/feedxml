@@ -4,7 +4,7 @@ import { openSnapshot } from "./source.js";
 import { transformFor } from "./registry.js";
 import { stageSnapshot, type StageResult } from "./pipeline.js";
 import { PgSkippedWriter, PgStagingWriter } from "./staging.js";
-import { applyRun } from "./apply.js";
+import { applyRun, notInSnapshotSql, type ApplyResult } from "./apply.js";
 import { evaluateThresholds, type RunCounts } from "./validate.js";
 import { openRunIssue, writeRecordIssues } from "./issues.js";
 
@@ -18,7 +18,12 @@ export interface RunContext {
   skipStreakLimit: number;
 }
 
-/** One place for every feed_runs state transition. */
+/**
+ * One place for every feed_runs state transition.
+ * `counts` MERGES into the stored jsonb (halt counts survive the approve
+ * path's later additions); `error` is SET verbatim — omitting it clears any
+ * stale message, so a successfully retried run never reads as failed.
+ */
 export async function setState(
   pool: Pool,
   runId: string,
@@ -28,8 +33,9 @@ export async function setState(
   await pool.query(
     `update feed_runs
      set state = $2::run_state,
-         counts = coalesce($3::jsonb, counts),
-         error = coalesce($4, error),
+         counts = case when $3::jsonb is null then counts
+                       else coalesce(counts, '{}'::jsonb) || $3::jsonb end,
+         error = $4,
          updated_at = now()
      where id = $1`,
     [runId, state, extra?.counts ? JSON.stringify(extra.counts) : null, extra?.error ?? null],
@@ -37,18 +43,41 @@ export async function setState(
 }
 
 /**
+ * The shared apply tail: merge + sweep + streaks + auto-resolution, then the
+ * transition to done with counts merged. Both the validated happy path and a
+ * human Approve go through here — the two paths must never drift.
+ */
+export async function completeRun(
+  pool: Pool,
+  runId: string,
+  supplierId: string,
+  skipStreakLimit: number,
+  extraCounts: Record<string, unknown> = {},
+): Promise<ApplyResult> {
+  const applied = await applyRun(pool, runId, supplierId, skipStreakLimit);
+  await setState(pool, runId, "done", { counts: { ...extraCounts, ...applied } });
+  return applied;
+}
+
+/**
  * Execute one Run: stage the whole Snapshot, validate against per-Feed
  * thresholds, then either halt for human review or apply.
  * Restart-everything semantics: this run's artifacts (staging rows, skipped
- * codes, its own issues) are wiped on entry, so a Cloud Run retry starts
- * idempotently from zero (DESIGN.md, decision 12).
+ * codes, its own issues, counts) are wiped on entry, so a Cloud Run retry
+ * starts idempotently from zero (DESIGN.md, decision 12).
  */
 export async function executeRun(
   pool: Pool,
   ctx: RunContext,
 ): Promise<{ result: StageResult; halted: boolean }> {
+  // Partial per-feed config must never silently disable a rule: normalize
+  // against the defaults at the single entry seam.
+  const thresholds: FeedThresholds = { ...DEFAULT_THRESHOLDS, ...ctx.thresholds };
+
   await pool.query(
-    `update feed_runs set attempt = attempt + 1, updated_at = now() where id = $1`,
+    `update feed_runs
+     set attempt = attempt + 1, counts = null, error = null, updated_at = now()
+     where id = $1`,
     [ctx.runId],
   );
   await pool.query(`delete from staging_products where run_id = $1`, [ctx.runId]);
@@ -70,7 +99,7 @@ export async function executeRun(
 
     await setState(pool, ctx.runId, "validating");
     const counts = await computeCounts(pool, ctx, result);
-    const breaches = evaluateThresholds(counts, ctx.thresholds);
+    const breaches = evaluateThresholds(counts, thresholds);
 
     if (breaches.length > 0) {
       // Halt before applying anything: a human approves or rejects (CONTEXT.md: Halted).
@@ -82,8 +111,7 @@ export async function executeRun(
     }
 
     await setState(pool, ctx.runId, "merging");
-    const applied = await applyRun(pool, ctx.runId, ctx.supplierId, ctx.skipStreakLimit);
-    await setState(pool, ctx.runId, "done", { counts: { ...counts, ...applied } });
+    await completeRun(pool, ctx.runId, ctx.supplierId, ctx.skipStreakLimit, { ...counts });
     return { result, halted: false };
   } catch (err) {
     await setState(pool, ctx.runId, "failed", {
@@ -111,10 +139,7 @@ async function computeCounts(
   const missing = await pool.query(
     `select count(*)::int as n from products p
      where p.supplier_id = $2 and p.status = 'active'
-       and not exists (select 1 from staging_products s
-                       where s.run_id = $1 and s.product_code = p.product_code)
-       and not exists (select 1 from staging_skipped k
-                       where k.run_id = $1 and k.product_code = p.product_code)`,
+       and ${notInSnapshotSql("p")}`,
     [ctx.runId, ctx.supplierId],
   );
   return {
@@ -127,5 +152,3 @@ async function computeCounts(
     missing: missing.rows[0].n,
   };
 }
-
-export { DEFAULT_THRESHOLDS };

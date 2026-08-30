@@ -1,7 +1,6 @@
 import type { Pool } from "pg";
-import { applyRun } from "./apply.js";
 import { resolveRunIssue } from "./issues.js";
-import { setState } from "./run.js";
+import { completeRun, setState } from "./run.js";
 
 /**
  * Human verdicts on Halted Runs and the deactivation reversal. This is the
@@ -12,32 +11,42 @@ import { setState } from "./run.js";
 /**
  * Approve = the Snapshot is true, apply EVERYTHING including the Deactivation
  * Sweep (CONTEXT.md: Approve). Never a partial apply.
+ *
+ * Guards, all enforced atomically in the claim UPDATE:
+ * - state must still be awaiting_review (two concurrent verdicts: one wins);
+ * - no newer Run of the same Feed may exist in a non-dead state — approving a
+ *   stale Halted snapshot would sweep away everything the newer one added.
+ *   (Automatic supersession lands in Sprint 3; this refusal is its floor.)
+ * On a mid-apply error the run reverts to awaiting_review with the error
+ * recorded, so the verdict can simply be retried (applyRun is idempotent).
  */
-export async function approveRun(
-  pool: Pool,
-  runId: string,
-  actor: string,
-): Promise<void> {
-  const run = await pool.query(
-    `select r.state, f.supplier_id, f.skip_streak_limit
-     from feed_runs r join feeds f on f.id = r.feed_id
-     where r.id = $1`,
+export async function approveRun(pool: Pool, runId: string, actor: string): Promise<void> {
+  const claim = await pool.query(
+    `update feed_runs r
+     set state = 'merging', updated_at = now()
+     from feeds f
+     where r.id = $1 and r.state = 'awaiting_review' and f.id = r.feed_id
+       and not exists (select 1 from feed_runs n
+                       where n.feed_id = r.feed_id and n.id <> r.id
+                         and n.created_at > r.created_at
+                         and n.state not in ('failed', 'superseded'))
+     returning f.supplier_id, f.skip_streak_limit`,
     [runId],
   );
-  if (run.rowCount === 0) throw new Error(`run ${runId} not found`);
-  if (run.rows[0].state !== "awaiting_review") {
-    throw new Error(`run ${runId} is ${run.rows[0].state}, not awaiting_review`);
+  if (claim.rowCount === 0) {
+    throw new Error(await diagnoseClaimFailure(pool, runId, "approve"));
   }
-  const { supplier_id, skip_streak_limit } = run.rows[0];
+  const { supplier_id, skip_streak_limit } = claim.rows[0];
 
-  await setState(pool, runId, "merging");
-  const applied = await applyRun(pool, runId, supplier_id, skip_streak_limit);
-  const existing = await pool.query(`select counts from feed_runs where id = $1`, [runId]);
-  await setState(pool, runId, "done", {
-    counts: { ...(existing.rows[0].counts ?? {}), ...applied, approvedBy: actor },
-  });
+  try {
+    await completeRun(pool, runId, supplier_id, skip_streak_limit, { approvedBy: actor });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await setState(pool, runId, "awaiting_review", { error: `approve failed: ${message}` });
+    throw err;
+  }
   await resolveRunIssue(pool, runId, "approved");
-  await audit(pool, actor, "approve_run", { run_id: runId });
+  await audit(pool, actor, "approve_run", { run_id: runId, supplier_id });
 }
 
 /**
@@ -45,14 +54,45 @@ export async function approveRun(
  * kept as evidence until retention cleans it up (CONTEXT.md: Reject).
  */
 export async function rejectRun(pool: Pool, runId: string, actor: string): Promise<void> {
-  const run = await pool.query(`select state from feed_runs where id = $1`, [runId]);
-  if (run.rowCount === 0) throw new Error(`run ${runId} not found`);
-  if (run.rows[0].state !== "awaiting_review") {
-    throw new Error(`run ${runId} is ${run.rows[0].state}, not awaiting_review`);
+  const claim = await pool.query(
+    `update feed_runs r
+     set state = 'failed', error = 'rejected by admin', updated_at = now()
+     from feeds f
+     where r.id = $1 and r.state = 'awaiting_review' and f.id = r.feed_id
+     returning f.supplier_id`,
+    [runId],
+  );
+  if (claim.rowCount === 0) {
+    throw new Error(await diagnoseClaimFailure(pool, runId, "reject"));
   }
-  await setState(pool, runId, "failed", { error: "rejected by admin" });
   await resolveRunIssue(pool, runId, "rejected");
-  await audit(pool, actor, "reject_run", { run_id: runId });
+  await audit(pool, actor, "reject_run", { run_id: runId, supplier_id: claim.rows[0].supplier_id });
+}
+
+async function diagnoseClaimFailure(
+  pool: Pool,
+  runId: string,
+  verdict: string,
+): Promise<string> {
+  const run = await pool.query(`select state, feed_id, created_at from feed_runs where id = $1`, [
+    runId,
+  ]);
+  if (run.rowCount === 0) return `run ${runId} not found`;
+  const { state, feed_id, created_at } = run.rows[0];
+  if (state !== "awaiting_review") {
+    return `cannot ${verdict}: run ${runId} is ${state}, not awaiting_review`;
+  }
+  const newer = await pool.query(
+    `select id from feed_runs
+     where feed_id = $1 and id <> $2 and created_at > $3
+       and state not in ('failed', 'superseded')
+     order by created_at desc limit 1`,
+    [feed_id, runId, created_at],
+  );
+  if (newer.rowCount && newer.rowCount > 0) {
+    return `cannot ${verdict}: a newer snapshot exists for this feed (run ${newer.rows[0].id}) — this halted run is stale`;
+  }
+  return `cannot ${verdict}: run ${runId} claim failed (concurrent verdict?)`;
 }
 
 /**
@@ -84,8 +124,9 @@ async function audit(
   action: string,
   subject: Record<string, unknown>,
 ): Promise<void> {
-  await pool.query(
-    `insert into audit_log (actor, action, subject) values ($1, $2, $3)`,
-    [actor, action, JSON.stringify(subject)],
-  );
+  await pool.query(`insert into audit_log (actor, action, subject) values ($1, $2, $3)`, [
+    actor,
+    action,
+    JSON.stringify(subject),
+  ]);
 }

@@ -27,7 +27,7 @@ describe("walking skeleton: fixture Snapshot through the streaming core", () => 
     expect(result.records).toBe(5);
     expect(result.staged).toBe(2); // ACME-001, ACME-002 — the dup is not a new catalog entry
     expect(result.duplicateCount).toBe(1); // second ACME-002
-    expect(result.duplicates[0]).toMatchObject({ productCode: "ACME-002" });
+    expect(result.duplicates[0]).toBe("ACME-002");
   });
 
   it("records Skipped codes durably so Skipped is never Missing", async () => {

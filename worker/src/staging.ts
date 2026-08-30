@@ -26,11 +26,11 @@ export class MemoryStagingWriter implements StagingWriter {
   async flush(): Promise<void> {}
 }
 
-/** Test double for Skipped codes. */
+/** Test double for Skipped codes — deduplicates like the real sink's PK does. */
 export class MemorySkippedWriter implements SkippedWriter {
   codes: string[] = [];
   async write(productCode: string): Promise<void> {
-    this.codes.push(productCode);
+    if (!this.codes.includes(productCode)) this.codes.push(productCode);
   }
   async flush(): Promise<void> {}
 }

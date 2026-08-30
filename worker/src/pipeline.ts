@@ -7,11 +7,6 @@ import {
 import { parseXmlRecords } from "./frontends/xml.js";
 import type { SkippedWriter, StagingWriter } from "./staging.js";
 
-export interface DuplicateRecord {
-  productCode: string;
-  occurrence: number;
-}
-
 export interface StageResult {
   /** Records encountered in the Snapshot, valid or not. */
   records: number;
@@ -27,8 +22,8 @@ export interface StageResult {
   skipped: SkippedRecord[];
   /** Total duplicate occurrences (same Product Code more than once; last wins). */
   duplicateCount: number;
-  /** Evidence sample of duplicates, same cap rationale as `skipped`. */
-  duplicates: DuplicateRecord[];
+  /** Evidence sample of duplicated Product Codes, same cap rationale as `skipped`. */
+  duplicates: string[];
 }
 
 const MAX_EVIDENCE_SAMPLES = 1000;
@@ -56,7 +51,6 @@ export async function stageSnapshot(
     duplicates: [],
   };
   const seen = new Set<string>();
-  const skippedSeen = new Set<string>();
 
   await parseXmlRecords(stream, transform.recordElement, async (node) => {
     result.records += 1;
@@ -67,11 +61,10 @@ export async function stageSnapshot(
         // Duplicate Product Code within one Snapshot: last wins, logged.
         result.duplicateCount += 1;
         if (result.duplicates.length < MAX_EVIDENCE_SAMPLES) {
-          result.duplicates.push({ productCode: code, occurrence: result.duplicateCount });
+          result.duplicates.push(code);
         }
       } else {
         seen.add(code);
-        result.staged += 1;
       }
       await writer.write(withDefaultVariant(outcome.product));
     } else {
@@ -79,15 +72,15 @@ export async function stageSnapshot(
       if (result.skipped.length < MAX_EVIDENCE_SAMPLES) {
         result.skipped.push(outcome.skipped);
       }
-      const code = outcome.skipped.productCode;
-      if (code && !skippedSeen.has(code)) {
-        skippedSeen.add(code);
-        await skippedWriter.write(code);
+      // Dedup happens at the sink (PK + ON CONFLICT DO NOTHING) — one layer.
+      if (outcome.skipped.productCode) {
+        await skippedWriter.write(outcome.skipped.productCode);
       }
     }
   });
 
   await writer.flush();
   await skippedWriter.flush();
+  result.staged = seen.size;
   return result;
 }
