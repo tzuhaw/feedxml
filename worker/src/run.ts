@@ -11,6 +11,7 @@ import {
   openRunIssue,
   setState,
   writeRecordIssues,
+  type Breach,
   type RunCounts,
 } from "@feedxml/domain";
 import { notifyOps } from "./notify.js";
@@ -131,7 +132,9 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
       await openRunIssue(pool, ctx.runId, ctx.supplierId, breaches, { ...counts });
       await notifyOps(
         `[feedxml] ${ctx.supplierName}: snapshot needs review`,
-        `Run ${ctx.runId} halted: ${breaches.map((b) => `${b.rule} ${b.observed} > ${b.limit}`).join(", ")}.\n` +
+        `Run ${ctx.runId} halted: ${breaches
+          .map((b: Breach) => `${b.rule} ${b.observed} > ${b.limit}`)
+          .join(", ")}.\n` +
           `Counts: ${JSON.stringify(counts)}\nApprove or reject it in the admin panel.`,
       );
       return { result, halted: true, superseded: false };

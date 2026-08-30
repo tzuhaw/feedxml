@@ -41,7 +41,11 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
   let provided: string;
   try {
-    provided = atob(header.slice("Basic ".length));
+    // atob yields one char per BYTE; decode those bytes as UTF-8 so that
+    // non-ASCII credentials compare equal to the env values (browsers
+    // base64-encode the UTF-8 form).
+    const raw = atob(header.slice("Basic ".length));
+    provided = new TextDecoder().decode(Uint8Array.from(raw, (c) => c.charCodeAt(0)));
   } catch {
     return unauthorized("Malformed credentials");
   }

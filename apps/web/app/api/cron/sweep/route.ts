@@ -109,7 +109,7 @@ export async function GET(req: Request): Promise<NextResponse> {
                          where r.feed_id = f.id and r.state = 'done'
                            and r.created_at > now() - make_interval(mins => f.schedule_minutes))
          and not exists (select 1 from feed_runs r
-                         where r.feed_id = f.id and r.state = 'failed'
+                         where r.feed_id = f.id and r.state in ('failed', 'rejected')
                            and r.created_at > now() - greatest(
                                  make_interval(mins => f.schedule_minutes / 4),
                                  interval '30 minutes'))`,
@@ -158,13 +158,13 @@ export async function GET(req: Request): Promise<NextResponse> {
     );
     const staleStaging = await pool.query(
       `delete from staging_products sp using feed_runs r
-       where sp.run_id = r.id and r.state = 'failed'
+       where sp.run_id = r.id and r.state in ('failed', 'rejected')
          and r.updated_at < now() - interval '90 days'
          and not exists (select 1 from issues i where i.run_id = r.id and i.status = 'open')`,
     );
     await pool.query(
       `delete from staging_skipped sk using feed_runs r
-       where sk.run_id = r.id and r.state = 'failed'
+       where sk.run_id = r.id and r.state in ('failed', 'rejected')
          and r.updated_at < now() - interval '90 days'
          and not exists (select 1 from issues i where i.run_id = r.id and i.status = 'open')`,
     );

@@ -4,13 +4,29 @@ import { Shell, Table, Cell, StateBadge, Empty, ago, duration, palette } from ".
 
 export const dynamic = "force-dynamic";
 
+const STATES = [
+  "pending",
+  "downloading",
+  "staging",
+  "validating",
+  "awaiting_review",
+  "merging",
+  "done",
+  "failed",
+  "rejected",
+  "superseded",
+] as const;
+
 /** Run history: every state, including failed (with error) and superseded. */
 export default async function Runs({
   searchParams,
 }: {
   searchParams: Promise<{ state?: string }>;
 }) {
-  const { state } = await searchParams;
+  const { state: rawState } = await searchParams;
+  // Params reach an enum cast, so only known values pass — a stale bookmark
+  // must render an empty list, not a 500.
+  const state = STATES.includes(rawState as (typeof STATES)[number]) ? rawState : undefined;
   const pool = getPool();
   const runs = await pool.query(
     `select r.id, r.state, r.created_at, r.updated_at, r.attempt, r.error,
@@ -29,7 +45,7 @@ export default async function Runs({
            where state = 'done' order by updated_at desc limit 20) recent`,
   );
 
-  const filters = ["all", "done", "awaiting_review", "failed", "superseded"];
+  const filters = ["all", "done", "awaiting_review", "failed", "rejected", "superseded"];
 
   return (
     <Shell title="Runs">
@@ -37,7 +53,7 @@ export default async function Runs({
         {filters.map((f) => (
           <span key={f}>
             <Link href={f === "all" ? "/admin/runs" : `/admin/runs?state=${f}`}>{f}</Link>
-            {f === "superseded" ? "" : " · "}
+            {f === filters[filters.length - 1] ? "" : " · "}
           </span>
         ))}
         {durations.rows[0].n > 0 && (

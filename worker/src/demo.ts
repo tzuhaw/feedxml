@@ -37,7 +37,7 @@ async function main(): Promise<void> {
     // Idempotent run registration, same shape as the trigger endpoint.
     await pool.query(
       `insert into feed_runs (feed_id, object_key) values ($1, $2)
-       on conflict (object_key) do nothing`,
+       on conflict (object_key) where not manual_reingest do nothing`,
       [feedId, objectKey],
     );
     const run = await pool.query(

@@ -29,7 +29,7 @@ export async function approveRun(pool: Pool, runId: string, actor: string): Prom
        and not exists (select 1 from feed_runs n
                        where n.feed_id = r.feed_id and n.id <> r.id
                          and n.created_at > r.created_at
-                         and n.state not in ('failed', 'superseded'))
+                         and n.state not in ('failed', 'rejected', 'superseded'))
      returning f.id as feed_id, f.supplier_id, f.skip_streak_limit`,
     [runId],
   );
@@ -58,7 +58,7 @@ export async function approveRun(pool: Pool, runId: string, actor: string): Prom
 export async function rejectRun(pool: Pool, runId: string, actor: string): Promise<void> {
   const claim = await pool.query(
     `update feed_runs r
-     set state = 'failed', error = 'rejected by admin', updated_at = now()
+     set state = 'rejected', error = 'rejected by admin', updated_at = now()
      from feeds f
      where r.id = $1 and r.state = 'awaiting_review' and f.id = r.feed_id
      returning f.supplier_id`,
@@ -87,7 +87,7 @@ async function diagnoseClaimFailure(
   const newer = await pool.query(
     `select id from feed_runs
      where feed_id = $1 and id <> $2 and created_at > $3
-       and state not in ('failed', 'superseded')
+       and state not in ('failed', 'rejected', 'superseded')
      order by created_at desc limit 1`,
     [feed_id, runId, created_at],
   );

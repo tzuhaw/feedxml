@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "//vercel-build": "Vercel builds with this app as its root, so the workspace libraries it imports must be compiled here first (dependency order matters).",
+    "vercel-build": "npm run build --prefix ../../packages/shared && npm run build --prefix ../../packages/domain && next build",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -129,7 +129,8 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
 
     await rejectRun(pool, runId, "admin:test@example.com");
     const run = await pool.query(`select state, error from feed_runs where id = $1`, [runId]);
-    expect(run.rows[0]).toMatchObject({ state: "failed", error: "rejected by admin" });
+    // A human verdict is its own terminal state — never confusable with a crash.
+    expect(run.rows[0]).toMatchObject({ state: "rejected", error: "rejected by admin" });
     expect((await product(pool, feed, "B"))?.status).toBe("active");
     const staging = await pool.query(
       `select count(*)::int as n from staging_products where run_id = $1`,
@@ -370,8 +371,12 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     const source = await pool.query(`select object_key from feed_runs where id = $1`, [first]);
 
     // Same object key, allowed only because it is marked as a manual replay.
+    // The ON CONFLICT clause must repeat the partial index's predicate — a bare
+    // `on conflict (object_key)` cannot infer a partial index and errors 42P10,
+    // which is exactly how this broke in review.
     const replay = await pool.query(
       `insert into feed_runs (feed_id, object_key, manual_reingest) values ($1, $2, true)
+       on conflict (object_key) where not manual_reingest do nothing
        returning id`,
       [feed.feedId, source.rows[0].object_key],
     );
@@ -379,7 +384,8 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     // While an automatic re-registration of the same key is still refused.
     const auto = await pool.query(
       `insert into feed_runs (feed_id, object_key) values ($1, $2)
-       on conflict do nothing returning id`,
+       on conflict (object_key) where not manual_reingest do nothing
+       returning id`,
       [feed.feedId, source.rows[0].object_key],
     );
     expect(auto.rowCount).toBe(0);

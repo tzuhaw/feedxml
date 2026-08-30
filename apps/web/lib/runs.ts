@@ -38,16 +38,22 @@ export async function registerAndLaunch(
   pool: Pool,
   feedId: string,
   objectKey: string,
+  options: { manualReingest?: boolean } = {},
 ): Promise<RegisteredRun> {
+  const manual = options.manualReingest === true;
+  // The uniqueness that makes automatic triggers idempotent is a PARTIAL index
+  // (migration 0007), so ON CONFLICT must repeat its predicate to infer it.
+  // A manual re-ingest is a deliberate replay and never conflicts.
   const inserted = await pool.query(
-    `insert into feed_runs (feed_id, object_key) values ($1, $2)
-     on conflict (object_key) do nothing
+    `insert into feed_runs (feed_id, object_key, manual_reingest) values ($1, $2, $3)
+     on conflict (object_key) where not manual_reingest do nothing
      returning id`,
-    [feedId, objectKey],
+    [feedId, objectKey, manual],
   );
   if (inserted.rowCount === 0) {
     const existing = await pool.query(
-      `select id, state from feed_runs where object_key = $1`,
+      `select id, state from feed_runs
+       where object_key = $1 and not manual_reingest`,
       [objectKey],
     );
     const run = existing.rows[0];

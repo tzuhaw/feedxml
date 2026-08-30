@@ -26,7 +26,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Library packages must be built (in dependency order) before anything
+      # that imports them typechecks — shared first, then domain.
       - run: npm run build -w packages/shared
+      - run: npm run build -w packages/domain
       - run: npm run typecheck
       - run: npm test
         env:

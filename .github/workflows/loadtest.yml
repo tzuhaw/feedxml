@@ -31,7 +31,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -w packages/shared -w worker
+      - run: npm run build -w packages/shared -w packages/domain -w worker
       - name: Generate synthetic Snapshot
         run: node worker/dist/genfeed.js "${{ inputs.products }}" /tmp/feed.xml
       - name: Run the pipeline end to end

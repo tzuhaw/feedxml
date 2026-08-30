@@ -16,7 +16,9 @@ export default async function Issues({
 }: {
   searchParams: Promise<{ scope?: string; status?: string }>;
 }) {
-  const { scope, status } = await searchParams;
+  const { scope: rawScope, status } = await searchParams;
+  // Params reach an enum cast — unknown values must not 500 the inbox.
+  const scope = SCOPES.includes(rawScope as (typeof SCOPES)[number]) ? rawScope : "all";
   const showResolved = status === "resolved";
   const pool = getPool();
   const issues = await pool.query(
@@ -41,7 +43,7 @@ export default async function Issues({
             {" · "}
           </span>
         ))}
-        <Link href={`/admin/issues?scope=${scope ?? "all"}${showResolved ? "" : "&status=resolved"}`}>
+        <Link href={`/admin/issues?scope=${scope}${showResolved ? "" : "&status=resolved"}`}>
           {showResolved ? "show open" : "show resolved"}
         </Link>
       </p>
@@ -70,7 +72,7 @@ export default async function Issues({
               <Cell>{ago(i.created_at)}</Cell>
               <Cell>
                 {i.run_id && <Link href={`/admin/runs/${i.run_id}`}>run</Link>}
-                {i.status === "open" && (
+                {i.status === "open" && i.scope !== "run" && (
                   <form action={resolveIssueAction} style={{ display: "inline" }}>
                     <input type="hidden" name="issueId" value={i.id} />
                     <button

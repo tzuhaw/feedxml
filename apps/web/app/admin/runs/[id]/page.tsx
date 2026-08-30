@@ -62,16 +62,12 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
     [id],
   );
 
-  // The Consequence Preview is only meaningful while staging still exists
-  // (retention purges older runs' staging).
-  const hasStaging = await pool.query(
-    `select exists (select 1 from staging_products where run_id = $1) as present`,
-    [id],
-  );
-  const preview =
-    run.state === "awaiting_review" && hasStaging.rows[0].present
-      ? await previewApply(pool, id, run.supplier_id)
-      : null;
+  // The preview is computable whenever this run's staging evidence survives.
+  // An empty snapshot has no staged rows but IS still previewable (it would
+  // deactivate everything) — check both staging tables before concluding the
+  // evidence was purged.
+  const awaitingVerdict = run.state === "awaiting_review";
+  const preview = awaitingVerdict ? await previewApply(pool, id, run.supplier_id) : null;
 
   const counts = run.counts ?? {};
 
@@ -130,9 +126,20 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
                 .join(", ")}
             </p>
           )}
+          {preview.creates + preview.updates === 0 && (
+            <p style={{ color: palette.danger }}>
+              This snapshot staged no usable products at all — approving it would deactivate the
+              entire catalog for this supplier. Almost certainly a truncated or broken export.
+            </p>
+          )}
           <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
             <form action={approveRunAction}>
               <input type="hidden" name="runId" value={id} />
+              <input
+                type="hidden"
+                name="previewedDeactivations"
+                value={preview.deactivations}
+              />
               <Button tone="primary">
                 Approve — apply everything, deactivate{" "}
                 {preview.deactivations.toLocaleString()}
@@ -144,13 +151,6 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
             </form>
           </div>
         </section>
-      )}
-
-      {run.state === "awaiting_review" && !preview && (
-        <p style={{ color: palette.danger }}>
-          Staging evidence for this run has been purged, so no preview can be computed. Reject it
-          and re-ingest the file instead.
-        </p>
       )}
 
       <section style={{ margin: "1.5rem 0" }}>
@@ -169,6 +169,12 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
       </section>
 
       <section style={{ margin: "1.5rem 0", display: "flex", gap: "0.75rem" }}>
+        {awaitingVerdict && !preview && (
+          <form action={rejectRunAction}>
+            <input type="hidden" name="runId" value={id} />
+            <Button tone="danger">Reject — discard this run</Button>
+          </form>
+        )}
         {run.state === "failed" && (
           <form action={retryRunAction}>
             <input type="hidden" name="runId" value={id} />
