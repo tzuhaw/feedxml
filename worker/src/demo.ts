@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     const feed = await pool.query(
       `insert into feeds (supplier_id, channel, format) values ($1, 'push', 'xml')
        on conflict (supplier_id, channel) do update set format = excluded.format
-       returning id`,
+       returning id, thresholds, skip_streak_limit`,
       [supplierId],
     );
     const feedId: string = feed.rows[0].id;
@@ -46,11 +46,14 @@ async function main(): Promise<void> {
     );
     const runId: string = run.rows[0].id;
 
-    const result = await executeRun(pool, {
+    const { result, halted } = await executeRun(pool, {
       runId,
       objectKey,
       supplierId,
       supplierName: "acme",
+      feedId,
+      thresholds: feed.rows[0].thresholds,
+      skipStreakLimit: feed.rows[0].skip_streak_limit,
     });
 
     const products = await pool.query(
@@ -58,7 +61,10 @@ async function main(): Promise<void> {
        from products where supplier_id = $1 order by product_code`,
       [supplierId],
     );
-    console.log(`staged ${result.staged}, skipped ${result.skippedCount}`);
+    console.log(
+      `staged ${result.staged} unique, skipped ${result.skippedCount}, duplicates ${result.duplicateCount}` +
+        (halted ? " — HALTED awaiting review" : ""),
+    );
     console.table(products.rows);
   } finally {
     await pool.end();

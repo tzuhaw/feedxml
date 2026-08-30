@@ -8,6 +8,15 @@ export interface StagingWriter {
   flush(): Promise<void>;
 }
 
+/**
+ * Sink for Skipped Product Codes (record present, failed validation).
+ * Durable so Skipped ≠ Missing survives the process for late approvals.
+ */
+export interface SkippedWriter {
+  write(productCode: string): Promise<void>;
+  flush(): Promise<void>;
+}
+
 /** Test double: collects rows in memory. */
 export class MemoryStagingWriter implements StagingWriter {
   rows: NormalizedProduct[] = [];
@@ -15,6 +24,42 @@ export class MemoryStagingWriter implements StagingWriter {
     this.rows.push(product);
   }
   async flush(): Promise<void> {}
+}
+
+/** Test double for Skipped codes. */
+export class MemorySkippedWriter implements SkippedWriter {
+  codes: string[] = [];
+  async write(productCode: string): Promise<void> {
+    this.codes.push(productCode);
+  }
+  async flush(): Promise<void> {}
+}
+
+/** Batched inserts into staging_skipped, scoped by run_id. */
+export class PgSkippedWriter implements SkippedWriter {
+  private buffer: string[] = [];
+
+  constructor(
+    private pool: Pool,
+    private runId: string,
+  ) {}
+
+  async write(productCode: string): Promise<void> {
+    this.buffer.push(productCode);
+    if (this.buffer.length >= BATCH_SIZE) await this.flush();
+  }
+
+  async flush(): Promise<void> {
+    if (this.buffer.length === 0) return;
+    const codes = this.buffer;
+    this.buffer = [];
+    await this.pool.query(
+      `insert into staging_skipped (run_id, product_code)
+       select $1, unnest($2::text[])
+       on conflict do nothing`,
+      [this.runId, codes],
+    );
+  }
 }
 
 const BATCH_SIZE = 500;

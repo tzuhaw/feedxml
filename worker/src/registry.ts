@@ -14,3 +14,8 @@ export function transformFor(supplierName: string): FeedTransform {
   if (!t) throw new Error(`no transform registered for supplier "${supplierName}"`);
   return t;
 }
+
+/** Wire in a transform at runtime — scenario tests and future dynamic onboarding. */
+export function registerTransform(supplierName: string, transform: FeedTransform): void {
+  transforms[supplierName] = transform;
+}

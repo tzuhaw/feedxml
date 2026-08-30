@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { stageSnapshot } from "../src/pipeline.js";
-import { MemoryStagingWriter } from "../src/staging.js";
+import { MemorySkippedWriter, MemoryStagingWriter } from "../src/staging.js";
 import { acmeTransform } from "../src/transforms/acme.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -11,19 +11,28 @@ const fixture = resolve(here, "../../fixtures/acme-small.xml");
 
 async function stageFixture() {
   const writer = new MemoryStagingWriter();
+  const skippedWriter = new MemorySkippedWriter();
   const result = await stageSnapshot(
     createReadStream(fixture),
     acmeTransform,
     writer,
+    skippedWriter,
   );
-  return { writer, result };
+  return { writer, skippedWriter, result };
 }
 
 describe("walking skeleton: fixture Snapshot through the streaming core", () => {
-  it("counts every record, staged or not", async () => {
+  it("counts every record; staged counts UNIQUE Product Codes", async () => {
     const { result } = await stageFixture();
     expect(result.records).toBe(5);
-    expect(result.staged).toBe(3); // ACME-001, ACME-002 (twice — dup), ACME-003 is skipped
+    expect(result.staged).toBe(2); // ACME-001, ACME-002 — the dup is not a new catalog entry
+    expect(result.duplicateCount).toBe(1); // second ACME-002
+    expect(result.duplicates[0]).toMatchObject({ productCode: "ACME-002" });
+  });
+
+  it("records Skipped codes durably so Skipped is never Missing", async () => {
+    const { skippedWriter } = await stageFixture();
+    expect(skippedWriter.codes).toEqual(["ACME-003"]); // the no-code record has nothing to protect
   });
 
   it("Skips (never drops silently) records that fail validation, with evidence", async () => {
