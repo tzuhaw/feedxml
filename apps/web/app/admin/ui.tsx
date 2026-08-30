@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { signOut } from "../actions";
 
 /**
  * Spartan-but-functional primitives for the ops panel: readable tables,
@@ -33,12 +34,35 @@ export function Shell({ title, children }: { title: string; children: ReactNode 
         color: "#16181d",
       }}
     >
-      <nav style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+      <nav
+        style={{
+          display: "flex",
+          gap: "1rem",
+          marginBottom: "1.5rem",
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         {nav.map(([href, label]) => (
           <Link key={href} href={href} style={{ color: "#0b5cad" }}>
             {label}
           </Link>
         ))}
+        <form action={signOut} style={{ marginLeft: "auto" }}>
+          <button
+            type="submit"
+            style={{
+              background: "none",
+              border: "none",
+              color: palette.muted,
+              cursor: "pointer",
+              font: "inherit",
+              padding: 0,
+            }}
+          >
+            Sign out
+          </button>
+        </form>
       </nav>
       <h1 style={{ fontSize: "1.4rem", margin: "0 0 1rem" }}>{title}</h1>
       {children}

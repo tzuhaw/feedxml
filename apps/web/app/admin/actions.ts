@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, readSession } from "@/lib/session";
 import { approveRun, previewApply, rejectRun, reverseDeactivation } from "@feedxml/domain";
 import { getPool } from "@/lib/db";
 import { registerAndLaunch, tryLaunch } from "@/lib/runs";
@@ -15,43 +16,18 @@ import { registerAndLaunch, tryLaunch } from "@/lib/runs";
  * because actions POST to the page URL they were rendered on.
  */
 
-function decodeBasic(header: string | null): { user: string; password: string } | null {
-  if (!header?.startsWith("Basic ")) return null;
-  try {
-    // atob yields one char per BYTE; decode those as UTF-8 so non-ASCII
-    // credentials survive the round trip.
-    const raw = atob(header.slice("Basic ".length));
-    const decoded = new TextDecoder().decode(Uint8Array.from(raw, (c) => c.charCodeAt(0)));
-    const separator = decoded.indexOf(":");
-    if (separator < 0) return null;
-    return { user: decoded.slice(0, separator), password: decoded.slice(separator + 1) };
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Defense in depth. Server actions are public endpoints whose only protection
  * today is that this module is imported solely by /admin pages, which the
  * middleware matcher covers. The day someone imports it from an unprotected
  * route, these actions would become anonymously invokable — and one of them
- * deactivates catalogs. So each action re-checks, here, at the point of use.
+ * deactivates catalogs. So each action re-checks the session, here, at the
+ * point of use.
  */
 async function assertAdmin(): Promise<string> {
-  const expectedUser = process.env.ADMIN_USER;
-  const expectedPassword = process.env.ADMIN_PASSWORD;
-  if (!expectedUser || !expectedPassword) {
-    throw new Error("admin panel is not configured");
-  }
-  const provided = decodeBasic((await headers()).get("authorization"));
-  if (
-    !provided ||
-    provided.user !== expectedUser ||
-    provided.password !== expectedPassword
-  ) {
-    throw new Error("unauthorized");
-  }
-  return `admin:${provided.user}`;
+  const user = await readSession((await cookies()).get(SESSION_COOKIE)?.value);
+  if (!user) throw new Error("Your session has expired — sign in again.");
+  return `admin:${user}`;
 }
 
 /** The authenticated admin, for audit rows. */

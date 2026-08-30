@@ -86,29 +86,38 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 
 .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.5rem; }
 
-/* ---------- hero ---------- */
-.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+/* ---------- the gate: sign-in ---------- */
+.gate-page {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2.5rem 1.5rem;
+  overflow: hidden;
+}
 
 .stream {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* The stream is ambient: it sits behind the words and never competes. */
-  -webkit-mask-image: radial-gradient(120% 90% at 50% 45%, #000 35%, transparent 100%);
-  mask-image: radial-gradient(120% 90% at 50% 45%, #000 35%, transparent 100%);
-  opacity: 0.85;
+  /* Ambient: the stream sits behind the panel and never competes with it. */
+  -webkit-mask-image: radial-gradient(115% 85% at 50% 45%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(115% 85% at 50% 45%, #000 30%, transparent 100%);
+  opacity: 0.8;
 }
 
-.hero-inner {
+.gate-inner {
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 24rem;
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
-  padding: 7rem 0 5.5rem;
-  pointer-events: none;
+  gap: 1.75rem;
 }
-.hero-inner > * { pointer-events: auto; }
+
+.brand { display: flex; flex-direction: column; gap: 0.5rem; }
+.brand h1 { font-size: 2.4rem; letter-spacing: -0.02em; }
 
 .eyebrow {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
@@ -118,15 +127,54 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
   color: var(--muted);
 }
 
-.hero h1 { font-size: var(--step-4); letter-spacing: -0.02em; max-width: 18ch; }
+.lede { color: var(--ink-soft); font-size: 0.95rem; }
 
-.lede { font-size: var(--step-1); color: var(--ink-soft); max-width: 54ch; }
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
+}
 
-.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field span {
+  font-size: var(--step--1);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.field input {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: var(--ground);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 0.55rem 0.7rem;
+  transition: border-color 140ms ease;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--halt);
+  background: var(--halt-soft);
+  border-left: 2px solid var(--halt);
+  padding: 0.5rem 0.7rem;
+  border-radius: 2px;
+}
 
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
   padding: 0.6rem 1.15rem;
   border-radius: 3px;
@@ -134,94 +182,18 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
+  font: inherit;
   font-size: 0.95rem;
-  transition: border-color 140ms ease, transform 140ms ease;
+  cursor: pointer;
+  transition: border-color 140ms ease, filter 140ms ease;
 }
-.btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.btn:hover { border-color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--ground); }
 .btn.primary:hover { filter: brightness(1.08); }
-
-/* ---------- numbers ---------- */
-.figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-}
-.figure {
-  padding: 1.6rem 1.5rem;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-.figure:last-child { border-right: none; }
-.figure dt { font-size: var(--step--1); color: var(--muted); letter-spacing: 0.04em; }
-.figure dd {
-  margin: 0;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: var(--step-2);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------- stages ---------- */
-section.stages { padding: 4.5rem 0 1rem; display: flex; flex-direction: column; gap: 2rem; }
-section.stages > header { display: flex; flex-direction: column; gap: 0.7rem; }
-section.stages h2 { font-size: var(--step-3); letter-spacing: -0.01em; }
-
-.grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1.15rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.card .n {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: var(--step--1);
-  color: var(--accent);
-  letter-spacing: 0.08em;
-}
-.card.gate { border-color: var(--halt); background: var(--halt-soft); }
-.card.gate .n { color: var(--halt); }
-.card h3 { font-family: "IBM Plex Sans", sans-serif; font-size: 1rem; font-weight: 600; }
-.card p { font-size: 0.93rem; color: var(--ink-soft); }
-
-/* ---------- closing ---------- */
-section.docs {
-  padding: 3.5rem 0 5rem;
-  margin-top: 3rem;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-section.docs h2 { font-size: var(--step-2); }
-.docs ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
-.docs li { color: var(--ink-soft); }
-
-footer.site {
-  border-top: 1px solid var(--border);
-  padding: 1.5rem 0 3rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
+.btn:disabled { opacity: 0.65; cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .btn { transition: none; }
 }
 
-@media (max-width: 42rem) {
-  .hero-inner { padding: 4.5rem 0 3.5rem; }
-  .figure { border-right: none; border-bottom: 1px solid var(--border); }
-  .figure:last-child { border-bottom: none; }
-}
