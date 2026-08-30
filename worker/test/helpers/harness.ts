@@ -1,42 +1,25 @@
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Pool } from "pg";
+import { join } from "node:path";
+import type { Pool } from "pg";
 import { DEFAULT_THRESHOLDS, type FeedThresholds } from "@feedxml/shared";
 import { executeRun, type RunContext } from "../../src/run.js";
 import { registerTransform } from "../../src/registry.js";
 import { acmeTransform } from "../../src/transforms/acme.js";
+import { connectDisposable, migrateDisposable } from "../../src/testdb.js";
 import type { StageResult } from "../../src/pipeline.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(here, "../../../supabase/migrations");
 
 export function testDatabaseUrl(): string | undefined {
   return process.env.TEST_DATABASE_URL;
 }
 
 export function connect(): Pool {
-  const url = testDatabaseUrl();
-  if (!url) throw new Error("TEST_DATABASE_URL not set");
-  // The harness DROPS SCHEMA public — refuse anything that isn't explicitly a
-  // local/dedicated test database.
-  const local = /localhost|127\.0\.0\.1/.test(url);
-  if (!local && process.env.TEST_DATABASE_ALLOW_REMOTE !== "1") {
-    throw new Error(
-      "TEST_DATABASE_URL is not local; set TEST_DATABASE_ALLOW_REMOTE=1 only for a dedicated, disposable test database",
-    );
-  }
-  return new Pool({ connectionString: url, max: 4 });
+  return connectDisposable(testDatabaseUrl());
 }
 
 /** Wipe and rebuild the schema from the real migration files. */
 export async function migrate(pool: Pool): Promise<void> {
-  await pool.query("drop schema public cascade; create schema public;");
-  const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
-  for (const file of files) {
-    await pool.query(readFileSync(join(migrationsDir, file), "utf8"));
-  }
+  await migrateDisposable(pool);
 }
 
 // ---- Snapshot builders -----------------------------------------------------

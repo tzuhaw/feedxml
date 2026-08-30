@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseObjectKey } from "@feedxml/shared";
 import { getPool } from "@/lib/db";
 import { secretsMatch } from "@/lib/auth";
 import { registerAndLaunch, resolveFeedForKey } from "@/lib/runs";
@@ -27,15 +28,20 @@ export async function POST(req: Request): Promise<NextResponse> {
     typeof body === "object" && body !== null && "objectKey" in body
       ? (body as { objectKey: unknown }).objectKey
       : undefined;
-  if (typeof objectKey !== "string") {
-    return NextResponse.json({ error: "objectKey is required" }, { status: 400 });
+  // 400 = the key itself violates the contract (client bug, don't retry);
+  // 404 = well-formed key but no active feed (provisioning gap).
+  if (typeof objectKey !== "string" || parseObjectKey(objectKey) === null) {
+    return NextResponse.json(
+      { error: "objectKey must match feeds/{supplier}/{timestamp}.{xml|ndjson}" },
+      { status: 400 },
+    );
   }
 
   const pool = getPool();
   const feed = await resolveFeedForKey(pool, objectKey);
   if (!feed) {
     return NextResponse.json(
-      { error: "objectKey does not match an active feed (feeds/{supplier}/{file}.{xml|ndjson})" },
+      { error: "no active feed matches this objectKey" },
       { status: 404 },
     );
   }

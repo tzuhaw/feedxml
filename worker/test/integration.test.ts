@@ -335,13 +335,42 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     const outcome = await executeRun(pool, ctx);
     expect(outcome.superseded).toBe(true);
     expect(outcome.result).toBeNull();
+    const run = await pool.query(`select state, attempt from feed_runs where id = $1`, [haltedId]);
+    expect(run.rows[0].state).toBe("superseded");
+    expect(run.rows[0].attempt).toBe(1); // the no-op never claimed an attempt
+  });
+
+  it("re-executing a Halted run is refused (no Issue wipe, no duplicate review email)", async () => {
+    const feed = await seedFeed(pool, "s-rehalt");
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+    const { runId, ctx, halted } = await runSnapshot(pool, feed, [good("A")]);
+    expect(halted).toBe(true);
+
+    const outcome = await executeRun(pool, ctx); // raced relaunch of the same run
+    expect(outcome.result).toBeNull();
+    expect(outcome.superseded).toBe(false);
+    const run = await pool.query(`select state from feed_runs where id = $1`, [runId]);
+    expect(run.rows[0].state).toBe("awaiting_review");
+    const issues = await pool.query(
+      `select count(*)::int as n from issues where run_id = $1 and scope = 'run' and status = 'open'`,
+      [runId],
+    );
+    expect(issues.rows[0].n).toBe(1); // still exactly one, not wiped-and-recreated
+  });
+
+  it("a superseded run's staging is purged by the next successful run", async () => {
+    const feed = await seedFeed(pool, "s-sup-purge");
+    await runSnapshot(pool, feed, [good("A"), good("B")]);
+    const { runId: haltedId } = await runSnapshot(pool, feed, [good("A")]); // halts
+    await runSnapshot(pool, feed, [good("A"), good("B")]); // supersedes + completes
+
     const run = await pool.query(`select state from feed_runs where id = $1`, [haltedId]);
     expect(run.rows[0].state).toBe("superseded");
     const staging = await pool.query(
       `select count(*)::int as n from staging_products where run_id = $1`,
       [haltedId],
     );
-    expect(staging.rows[0].n).toBe(1); // evidence untouched by the no-op
+    expect(staging.rows[0].n).toBe(0); // no orphaned staging accumulating forever
   });
 
   it("retention: a successful run purges the PREVIOUS successful run's staging only", async () => {

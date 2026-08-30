@@ -120,7 +120,8 @@ export async function reverseDeactivation(
   await audit(pool, actor, "pin", { supplier_id: supplierId, product_code: productCode });
 }
 
-async function audit(
+/** Single-row audit writer shared by verdicts and key issuance (apply.ts's set-based inserts stay separate). */
+export async function audit(
   pool: Pool,
   actor: string,
   action: string,

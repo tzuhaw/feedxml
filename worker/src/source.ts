@@ -16,20 +16,7 @@ export async function openSnapshot(objectKey: string): Promise<Readable> {
     }
     return createReadStream(objectKey.slice("file:".length));
   }
-  const endpoint = process.env.R2_ENDPOINT;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.R2_BUCKET;
-  if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
-    throw new Error(
-      "R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET must be set for non-file sources",
-    );
-  }
-  const s3 = new S3Client({
-    region: "auto",
-    endpoint,
-    credentials: { accessKeyId, secretAccessKey },
-  });
+  const { s3, bucket } = r2();
   const res = await s3.send(
     new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
   );
@@ -57,8 +44,14 @@ export async function objectExists(objectKey: string): Promise<boolean> {
   try {
     await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }));
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    // ONLY a definitive 404 means absent. Any other failure (auth, throttle,
+    // 5xx) must throw — treating it as "missing" would re-pull the supplier
+    // and overwrite the canonical audit Snapshot with different content.
+    const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+    const name = (err as { name?: string }).name;
+    if (status === 404 || name === "NotFound" || name === "NoSuchKey") return false;
+    throw err;
   }
 }
 

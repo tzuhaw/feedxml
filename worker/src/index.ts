@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { parseObjectKey } from "@feedxml/shared";
 import { executeRun } from "./run.js";
 
 /**
@@ -37,7 +38,7 @@ async function main(): Promise<void> {
     } = row.rows[0];
     // The deployed entrypoint only ever reads bucket objects in the canonical
     // layout; anything else (file:, path tricks) is rejected before I/O.
-    if (!/^feeds\/[^/]+\/[^/]+\.(xml|ndjson)$/.test(object_key)) {
+    if (parseObjectKey(object_key) === null) {
       throw new Error(`run ${runId} has non-canonical object key`);
     }
 

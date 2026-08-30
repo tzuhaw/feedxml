@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildObjectKey, parseObjectKey } from "@feedxml/shared";
 import { getPool } from "@/lib/db";
 import { authenticateSupplier } from "@/lib/auth";
 import { completeMultipartUpload, initMultipartUpload, signPartUrl } from "@/lib/r2";
@@ -37,16 +38,15 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const ownPrefix = `feeds/${supplier.name}/`;
   const keyOk = (k: unknown): k is string =>
-    typeof k === "string" && k.startsWith(ownPrefix) && /\.(xml|ndjson)$/.test(k);
+    typeof k === "string" && parseObjectKey(k)?.supplierName === supplier.name;
   const uploadIdOk = (u: unknown): u is string =>
     typeof u === "string" && u.length > 0 && u.length < 4096;
 
   switch (body.action) {
     case "init": {
       const format = body.format === "ndjson" ? "ndjson" : "xml";
-      const objectKey = `${ownPrefix}${Date.now()}.${format}`;
+      const objectKey = buildObjectKey(supplier.name, Date.now(), format);
       const uploadId = await initMultipartUpload(objectKey);
       await pool.query(
         `insert into audit_log (actor, action, subject) values ($1, 'upload_init', $2)`,

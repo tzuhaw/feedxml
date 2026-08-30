@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import { SUPPLIER_NAME_PATTERN } from "@feedxml/shared";
+import { audit } from "./admin.js";
 
 /**
  * Issue (or rotate) a supplier API key for the push channel.
@@ -12,6 +14,13 @@ async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!name || !databaseUrl) {
     throw new Error("usage: DATABASE_URL=... node dist/keygen.js <supplier-name>");
+  }
+  // Names embed in bucket keys — an unconstrained name breaks the key
+  // roundtrip AFTER a successful upload. Refuse it where it's born.
+  if (!SUPPLIER_NAME_PATTERN.test(name)) {
+    throw new Error(
+      `supplier name "${name}" must match ${SUPPLIER_NAME_PATTERN} (lowercase alphanumeric, "-", "_")`,
+    );
   }
 
   const apiKey = `fxk_${randomBytes(24).toString("base64url")}`;
@@ -25,10 +34,10 @@ async function main(): Promise<void> {
        returning id`,
       [name, hash],
     );
-    await pool.query(
-      `insert into audit_log (actor, action, subject) values ('system', 'issue_api_key', $1)`,
-      [JSON.stringify({ supplier_id: supplier.rows[0].id, supplier_name: name })],
-    );
+    await audit(pool, "system", "issue_api_key", {
+      supplier_id: supplier.rows[0].id,
+      supplier_name: name,
+    });
     console.log(`supplier: ${name}`);
     console.log(`supplier_id: ${supplier.rows[0].id}`);
     console.log(`api_key (shown once, store it now): ${apiKey}`);

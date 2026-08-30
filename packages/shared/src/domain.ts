@@ -4,6 +4,44 @@
 export type Channel = "push" | "pull" | "sftp" | "scrape";
 export type SnapshotFormat = "xml" | "ndjson";
 
+/**
+ * Supplier names participate in bucket keys, so they are constrained to a
+ * URL-and-key-safe alphabet. Enforced at keygen and by a DB CHECK.
+ */
+export const SUPPLIER_NAME_PATTERN = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+
+export interface ParsedObjectKey {
+  supplierName: string;
+  timestamp: number;
+  format: SnapshotFormat;
+}
+
+/**
+ * THE canonical Snapshot key codec: feeds/{supplier}/{timestamp}.{format}.
+ * Every producer builds keys with buildObjectKey and every consumer parses
+ * with parseObjectKey — the pattern lives nowhere else.
+ */
+export function buildObjectKey(
+  supplierName: string,
+  timestamp: number,
+  format: SnapshotFormat,
+): string {
+  if (!SUPPLIER_NAME_PATTERN.test(supplierName)) {
+    throw new Error(`supplier name "${supplierName}" is not key-safe`);
+  }
+  return `feeds/${supplierName}/${timestamp}.${format}`;
+}
+
+export function parseObjectKey(key: string): ParsedObjectKey | null {
+  const m = /^feeds\/([a-z0-9][a-z0-9_-]{0,62})\/(\d+)\.(xml|ndjson)$/.exec(key);
+  if (!m) return null;
+  return {
+    supplierName: m[1]!,
+    timestamp: Number(m[2]),
+    format: m[3] as SnapshotFormat,
+  };
+}
+
 export type RunState =
   | "pending"
   | "downloading"

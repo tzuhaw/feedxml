@@ -14,6 +14,8 @@ export async function notifyOps(subject: string, body: string): Promise<void> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      // A hung email API must never pin a worker mid-run.
+      signal: AbortSignal.timeout(10_000),
       headers: {
         authorization: `Bearer ${key}`,
         "content-type": "application/json",

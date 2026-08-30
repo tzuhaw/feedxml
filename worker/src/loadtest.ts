@@ -1,8 +1,7 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { resolve, join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Pool } from "pg";
+import { statSync } from "node:fs";
+import { resolve } from "node:path";
 import { executeRun } from "./run.js";
+import { connectDisposable, migrateDisposable } from "./testdb.js";
 import { DEFAULT_THRESHOLDS } from "@feedxml/shared";
 
 /**
@@ -15,26 +14,16 @@ import { DEFAULT_THRESHOLDS } from "@feedxml/shared";
  */
 async function main(): Promise<void> {
   const feedPath = resolve(process.argv[2] ?? "synthetic-feed.xml");
-  const databaseUrl = process.env.TEST_DATABASE_URL;
-  if (!databaseUrl) throw new Error("TEST_DATABASE_URL is required");
-  if (!/localhost|127\.0\.0\.1/.test(databaseUrl) && process.env.TEST_DATABASE_ALLOW_REMOTE !== "1") {
-    throw new Error("refusing a non-local TEST_DATABASE_URL (this test drops schema public)");
-  }
   process.env.ALLOW_FILE_SOURCE = "1";
 
-  const pool = new Pool({ connectionString: databaseUrl, max: 4 });
+  const pool = connectDisposable(process.env.TEST_DATABASE_URL);
   let peakRss = 0;
   const rssSampler = setInterval(() => {
     peakRss = Math.max(peakRss, process.memoryUsage().rss);
   }, 500);
 
   try {
-    await pool.query("drop schema public cascade; create schema public;");
-    const here = dirname(fileURLToPath(import.meta.url));
-    const migrationsDir = resolve(here, "../../supabase/migrations");
-    for (const f of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
-      await pool.query(readFileSync(join(migrationsDir, f), "utf8"));
-    }
+    await migrateDisposable(pool);
 
     const supplier = await pool.query(
       `insert into suppliers (name) values ('acme') returning id`,
