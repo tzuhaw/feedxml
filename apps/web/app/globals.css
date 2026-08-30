@@ -197,3 +197,177 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
   .btn { transition: none; }
 }
 
+
+/* ---------- admin panel ---------- */
+.panel {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 5rem;
+  color: var(--ink);
+}
+
+.panel-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.panel-nav a { color: var(--accent); text-decoration: none; padding: 0.35rem 0; }
+.panel-nav a:hover { text-decoration: underline; }
+.panel-signout { margin-left: auto; }
+.panel-signout button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.35rem 0;
+}
+.panel-signout button:hover { color: var(--ink); }
+
+.panel-title {
+  font-size: 1.5rem;
+  margin: 0 0 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.table-wrap { overflow-x: auto; }
+
+.panel-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+.panel-table th {
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  padding: 0.45rem 0.6rem;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+}
+.panel-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0.6rem;
+  vertical-align: top;
+}
+.panel-table td.mono { font-size: 0.82rem; }
+
+/*
+ * Phones: eight columns cannot be read sideways, so each row becomes a card
+ * and every cell carries its column name. The headings are hidden because the
+ * labels now live on the cells themselves.
+ */
+@media (max-width: 40rem) {
+  .panel { padding: 1rem 0.85rem 4rem; }
+  .panel-title { font-size: 1.3rem; }
+
+  .panel-table,
+  .panel-table tbody,
+  .panel-table tr,
+  .panel-table td { display: block; width: 100%; }
+
+  .panel-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  .panel-table tr {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 0.35rem 0.15rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .panel-table td {
+    border-bottom: none;
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) 1fr;
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.3rem 0.7rem;
+  }
+  .panel-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+  }
+  /* A cell with no heading (an action link) spans the full width. */
+  .panel-table td:not([data-label]) { display: block; }
+
+  /* Touch targets, and forms that would otherwise sit shoulder to shoulder. */
+  .panel-table button,
+  .panel-table a { display: inline-block; padding: 0.25rem 0; }
+}
+
+/* ---------- run detail ---------- */
+.run-meta { color: var(--muted); font-size: 0.92rem; }
+.run-key { color: var(--ink-soft); word-break: break-all; margin: 0.35rem 0 0; }
+.run-error { color: var(--danger, #a13030); }
+.muted { color: var(--muted); }
+.card-h { font-size: 1rem; margin: 0 0 0.5rem; }
+
+.run-section { margin: 1.5rem 0; }
+
+.preview-card {
+  border: 2px solid var(--halt);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  background: var(--halt-soft);
+}
+.preview-list { line-height: 1.7; margin: 0; padding-left: 1.1rem; }
+.preview-list li { max-width: none; }
+.halted-on { color: var(--halt); margin-top: 0.75rem; }
+
+.counts {
+  background: var(--sunk);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+/* Action rows wrap instead of overflowing, and go full width on a phone. */
+.act-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+
+.act {
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 2.6rem;
+}
+.act-primary { background: var(--accent); border-color: var(--accent); color: var(--ground); }
+.act-danger { color: var(--danger, #a13030); }
+.act:hover { filter: brightness(1.05); }
+
+/* Products page filter */
+.panel input[type="text"], .panel input:not([type]) {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink);
+  max-width: 100%;
+}
+
+@media (max-width: 40rem) {
+  .preview-card { padding: 0.85rem; margin: 1.1rem 0; }
+  .act-row { flex-direction: column; align-items: stretch; }
+  .act-row form { width: 100%; }
+  .act { width: 100%; }
+  .counts { font-size: 0.74rem; }
+  .panel input { width: 100%; }
+}

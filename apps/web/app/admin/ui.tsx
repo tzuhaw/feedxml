@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ReactNode } from "react";
 
 /**
  * Spartan-but-functional primitives for the ops panel: readable tables,
@@ -24,90 +24,66 @@ export function Shell({ title, children }: { title: string; children: ReactNode 
     ["/admin/feeds", "Feeds"],
   ] as const;
   return (
-    <main
-      style={{
-        fontFamily: "system-ui, sans-serif",
-        maxWidth: 1100,
-        margin: "0 auto",
-        padding: "1.5rem 1rem 4rem",
-        color: "#16181d",
-      }}
-    >
-      <nav
-        style={{
-          display: "flex",
-          gap: "1rem",
-          marginBottom: "1.5rem",
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
+    <main className="panel">
+      <nav className="panel-nav">
         {nav.map(([href, label]) => (
-          <Link key={href} href={href} style={{ color: "#0b5cad" }}>
+          <Link key={href} href={href}>
             {label}
           </Link>
         ))}
-        <form action="/api/session" method="POST" style={{ marginLeft: "auto" }}>
+        <form action="/api/session" method="POST" className="panel-signout">
           <input type="hidden" name="intent" value="signout" />
-          <button
-            type="submit"
-            style={{
-              background: "none",
-              border: "none",
-              color: palette.muted,
-              cursor: "pointer",
-              font: "inherit",
-              padding: 0,
-            }}
-          >
-            Sign out
-          </button>
+          <button type="submit">Sign out</button>
         </form>
       </nav>
-      <h1 style={{ fontSize: "1.4rem", margin: "0 0 1rem" }}>{title}</h1>
+      <h1 className="panel-title">{title}</h1>
       {children}
     </main>
   );
 }
 
+/**
+ * On a phone these tables would be a sideways scroll of eight columns, so each
+ * row becomes a stacked card instead. The column headings are pushed down to
+ * the cells as data-labels automatically — pages keep writing plain rows.
+ */
 export function Table({ head, children }: { head: string[]; children: ReactNode }) {
+  const labelled = Children.map(children, (row) => {
+    if (!isValidElement(row)) return row;
+    const cells = Children.map(
+      (row.props as { children?: ReactNode }).children,
+      (cell, i) => (isValidElement(cell) ? cloneElement(cell as never, { label: head[i] }) : cell),
+    );
+    return cloneElement(row as never, {}, cells);
+  });
+
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "0.9rem" }}>
+    <div className="table-wrap">
+      <table className="panel-table">
         <thead>
           <tr>
             {head.map((h) => (
-              <th
-                key={h}
-                style={{
-                  textAlign: "left",
-                  borderBottom: `2px solid ${palette.border}`,
-                  padding: "0.4rem 0.6rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {h}
-              </th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>{labelled}</tbody>
       </table>
     </div>
   );
 }
 
-export function Cell({ children, mono }: { children: ReactNode; mono?: boolean }) {
+export function Cell({
+  children,
+  mono,
+  label,
+}: {
+  children: ReactNode;
+  mono?: boolean;
+  label?: string;
+}) {
   return (
-    <td
-      style={{
-        borderBottom: `1px solid ${palette.border}`,
-        padding: "0.4rem 0.6rem",
-        verticalAlign: "top",
-        fontFamily: mono ? "ui-monospace, monospace" : undefined,
-        fontSize: mono ? "0.82rem" : undefined,
-      }}
-    >
+    <td className={mono ? "mono" : undefined} data-label={label}>
       {children}
     </td>
   );

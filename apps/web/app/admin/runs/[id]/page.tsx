@@ -20,24 +20,8 @@ function Button({
   children: React.ReactNode;
   tone?: "normal" | "danger" | "primary";
 }) {
-  const colours = {
-    normal: { bg: "#fff", fg: "#16181d" },
-    danger: { bg: "#fff", fg: palette.danger },
-    primary: { bg: palette.ok, fg: "#fff" },
-  }[tone];
   return (
-    <button
-      type="submit"
-      style={{
-        background: colours.bg,
-        color: colours.fg,
-        border: `1px solid ${palette.border}`,
-        borderRadius: 4,
-        padding: "0.4rem 0.9rem",
-        cursor: "pointer",
-        font: "inherit",
-      }}
-    >
+    <button type="submit" className={`act act-${tone}`}>
       {children}
     </button>
   );
@@ -84,7 +68,7 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
 
   return (
     <Shell title={`Run — ${run.supplier}`}>
-      <p style={{ color: palette.muted }}>
+      <p className="run-meta">
         <StateBadge state={run.state} /> · started {ago(run.created_at)} · took{" "}
         {duration(run.created_at, run.updated_at)} · attempt {run.attempt}
         {run.manual_reingest && " · manual re-ingest"}
@@ -95,23 +79,15 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
           </>
         )}
       </p>
-      <p style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}>{run.object_key}</p>
-      {run.error && <p style={{ color: palette.danger }}>{run.error}</p>}
+      <p className="run-key mono">{run.object_key}</p>
+      {run.error && <p className="run-error">{run.error}</p>}
 
       {preview && (
-        <section
-          style={{
-            border: `2px solid ${palette.warn}`,
-            borderRadius: 6,
-            padding: "1rem",
-            margin: "1.5rem 0",
-            background: palette.bg,
-          }}
-        >
-          <h2 style={{ fontSize: "1rem", marginTop: 0 }}>
+        <section className="preview-card">
+          <h2 className="card-h">
             This snapshot needs review — here is exactly what approving does
           </h2>
-          <ul style={{ lineHeight: 1.7 }}>
+          <ul className="preview-list">
             <li>
               <strong>{preview.deactivations.toLocaleString()}</strong> products deactivated
               (missing from this snapshot)
@@ -128,7 +104,7 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
             </li>
           </ul>
           {Array.isArray(counts.breaches) && (
-            <p style={{ color: palette.warn }}>
+            <p className="halted-on">
               Halted on:{" "}
               {counts.breaches
                 .map((b: { rule: string; observed: number; limit: number }) =>
@@ -138,12 +114,12 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
             </p>
           )}
           {preview.creates + preview.updates === 0 && (
-            <p style={{ color: palette.danger }}>
+            <p className="run-error">
               This snapshot staged no usable products at all — approving it would deactivate the
               entire catalog for this supplier. Almost certainly a truncated or broken export.
             </p>
           )}
-          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+          <div className="act-row">
             <form action={approveRunAction}>
               <input type="hidden" name="runId" value={id} />
               <input
@@ -164,22 +140,14 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
         </section>
       )}
 
-      <section style={{ margin: "1.5rem 0" }}>
-        <h2 style={{ fontSize: "1rem" }}>Counts</h2>
-        <pre
-          style={{
-            background: palette.bg,
-            border: `1px solid ${palette.border}`,
-            padding: "0.75rem",
-            overflowX: "auto",
-            fontSize: "0.8rem",
-          }}
-        >
+      <section className="run-section">
+        <h2 className="card-h">Counts</h2>
+        <pre className="counts">
           {JSON.stringify(counts, null, 2)}
         </pre>
       </section>
 
-      <section style={{ margin: "1.5rem 0", display: "flex", gap: "0.75rem" }}>
+      <section className="run-section act-row">
         {awaitingVerdict && !preview && (
           <form action={rejectRunAction}>
             <input type="hidden" name="runId" value={id} />
@@ -201,9 +169,9 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
       </section>
 
       <section>
-        <h2 style={{ fontSize: "1rem" }}>Issues from this run ({issues.rowCount})</h2>
+        <h2 className="card-h">Issues from this run ({issues.rowCount})</h2>
         {issues.rowCount === 0 ? (
-          <p style={{ color: palette.muted }}>None.</p>
+          <p className="muted">None.</p>
         ) : (
           <Table head={["Scope", "Status", "Product", "Reason", "Evidence"]}>
             {issues.rows.map((i) => (
