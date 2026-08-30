@@ -106,6 +106,36 @@ Production build served locally.
 | F7 | Trigger rejects no secret | 401 | PASS |
 | F8 | Panel loads live data | **BLOCKED** — `DATABASE_URL` uses Supabase's direct host, which is IPv6-only and unreachable from Vercel. Needs the transaction pooler string. | BLOCKED |
 
+## F2. Browser-driven UI (Claude browser automation)
+
+Driven through a real browser against the running app, not HTTP alone.
+
+| Check | Observed | Result |
+|---|---|---|
+| Sign-in form renders with the ambient stream behind it | Both themes correct | PASS |
+| Wrong password | Inline message in the halt colour; no browser dialog | PASS |
+| Correct credentials | Lands in the panel, "Sign out" present | PASS |
+| Deep link survives login | Requested `/admin/issues?scope=record` signed out, arrived there after login with the filter applied | PASS |
+| Issue inbox | Three Record Issues with raw XML evidence inline | PASS |
+| Run history | State, duration, staged/applied counts, attempt | PASS |
+| Run detail | Full counts incl. the breach that halted it and `approvedBy` | PASS |
+| Sign out | Returns to the sign-in page | PASS |
+
+## F3. Adversarial suite — `scripts/e2e.mjs`
+
+57 cases, weighted toward what must NOT work. Method: run three rounds; when a
+round is clean, look for what it fails to cover, add those cases, run again.
+Six product bugs found this way — see [BUGS.md](BUGS.md).
+
+| Run | Result |
+|---|---|
+| Rounds 1–3 (local, current code) | **57/57, 57/57, 57/57** |
+| Production | Blocked — see F8 |
+
+```
+BASE=http://localhost:3130 DATABASE_URL=… node scripts/e2e.mjs 3
+```
+
 ## G. Performance
 
 `.github/workflows/loadtest.yml`, 1M synthetic products through the real pipeline.
