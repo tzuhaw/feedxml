@@ -55,6 +55,18 @@ export async function objectExists(objectKey: string): Promise<boolean> {
   }
 }
 
+/** Publish a locally-built Snapshot (the scrape channel's output) to the bucket. */
+export async function uploadSnapshot(localPath: string, objectKey: string): Promise<void> {
+  const { s3, bucket } = r2();
+  const upload = new Upload({
+    client: s3,
+    params: { Bucket: bucket, Key: objectKey, Body: createReadStream(localPath) },
+    queueSize: 3,
+    partSize: 16 * 1024 * 1024,
+  });
+  await upload.done();
+}
+
 /**
  * Pull channel: stream the supplier-hosted feed into the canonical bucket.
  * The bucket copy is the replay source and audit trail — ingestion always

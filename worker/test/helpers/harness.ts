@@ -129,6 +129,7 @@ export async function runSnapshot(
     thresholds: feed.thresholds,
     skipStreakLimit: feed.skipStreakLimit,
     channel: "push",
+    format: "xml",
     sourceUrl: null,
   };
   const { result, halted, superseded } = await executeRun(pool, ctx);

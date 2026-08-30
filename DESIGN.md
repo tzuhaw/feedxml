@@ -106,22 +106,28 @@ Notifications: email (e.g. Resend) on exactly two events — `awaiting_review` a
 | Run ledger | Forever |
 | Resolved issues | Purge after 90 days |
 
+## Operations
+
+The ops-facing playbook — what each email means, how to answer a halted run,
+replay procedures, and the supplier-onboarding checklist — is [RUNBOOK.md](RUNBOOK.md).
+
 ## Deferred by design (slots reserved, zero build today)
 
 - SFTP bridge
-- Fan-out parallelism / checkpoint-resume
+- Fan-out parallelism / checkpoint-resume — measured headroom is ~10× (1M products in ~5 min against a one-hour target), so the trigger is a sustained duration trend, not a guess
 - Image rehost pipeline
 - Variant/image child tables (promote from jsonb on demand)
 - Mapping DSL
 - Per-supplier config editing UI
 - Cross-supplier entity resolution
+- Daily issue digest (the inbox suffices while volume is low)
 
 ## Standing assumptions (flagged, not explicitly ruled on)
 
 - Worker in Node/TS (shares types with the app) using a SAX-style streaming parser
 - Staging loads via Postgres `COPY` / batched inserts over a direct connection (not the pooler)
 - Admin panel inside the existing Next.js app
-- Scraper cadence/politeness is its own design, out of this document's scope
+- Scraper cadence and politeness live in the adapter contract (`worker/src/scrape.ts`): a per-adapter request delay, a consecutive-failure abort, and a completeness floor
 
 ## Decision log
 
@@ -152,3 +158,6 @@ Notifications: email (e.g. Resend) on exactly two events — `awaiting_review` a
 | 22 | Identity vocabulary | "SKU" reserved for Variants; parents identified by Product Code; per-variant GTIN; variant-less products get an implicit default Variant |
 | 23 | Feed as arrangement | Feed = supplier + channel + format + schedule; all thresholds/config attach to Feed (a `feeds` table), not Supplier |
 | 24 | Issue taxonomy | One Issue entity with Record/Product/Run scope; Record and Product Issues auto-resolve on clean ingest; Run Issues resolve only by verdict |
+| 25 | Format front-ends | Pluggable per-format front-ends (XML, NDJSON) feed one core; JSON scalars become both attribute and child node so a supplier's single transform serves every format their channels deliver |
+| 26 | Scraper contract | Producer only: crawls politely, buffers to disk, and publishes one NDJSON Snapshot — or publishes nothing. A completeness floor and a consecutive-failure abort exist because a partial crawl is indistinguishable from a shrunken catalog |
+| 27 | Verdict states | `rejected` is distinct from `failed`, so a human decision is never confusable with a crash and Retry cannot resurrect a discarded Snapshot |

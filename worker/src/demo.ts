@@ -55,6 +55,7 @@ async function main(): Promise<void> {
       thresholds: feed.rows[0].thresholds,
       skipStreakLimit: feed.rows[0].skip_streak_limit,
       channel: "push",
+      format: "xml",
       sourceUrl: null,
     });
     if (!result) throw new Error("demo run was superseded — unexpected");

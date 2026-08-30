@@ -1,5 +1,10 @@
 import type { Pool } from "pg";
-import { DEFAULT_THRESHOLDS, type Channel, type FeedThresholds } from "@feedxml/shared";
+import {
+  DEFAULT_THRESHOLDS,
+  type Channel,
+  type FeedThresholds,
+  type SnapshotFormat,
+} from "@feedxml/shared";
 import { objectExists, openSnapshot, pullToBucket } from "./source.js";
 import { transformFor } from "./registry.js";
 import { stageSnapshot, type StageResult } from "./pipeline.js";
@@ -25,6 +30,7 @@ export interface RunContext {
   thresholds: FeedThresholds;
   skipStreakLimit: number;
   channel: Channel;
+  format: SnapshotFormat;
   sourceUrl: string | null;
 }
 
@@ -107,6 +113,7 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
       transformFor(ctx.supplierName),
       new PgStagingWriter(pool, ctx.runId),
       new PgSkippedWriter(pool, ctx.runId),
+      ctx.format,
     );
     await writeRecordIssues(pool, ctx.runId, ctx.supplierId, result.skipped, result.duplicates);
 

@@ -51,6 +51,7 @@ async function main(): Promise<void> {
       thresholds: DEFAULT_THRESHOLDS,
       skipStreakLimit: 3,
       channel: "push",
+      format: "xml",
       sourceUrl: null,
     });
     const secs = (Date.now() - started) / 1000;

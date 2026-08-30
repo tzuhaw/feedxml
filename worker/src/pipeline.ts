@@ -2,10 +2,36 @@ import type { Readable } from "node:stream";
 import {
   withDefaultVariant,
   type FeedTransform,
+  type RawRecord,
   type SkippedRecord,
+  type SnapshotFormat,
 } from "@feedxml/shared";
 import { parseXmlRecords } from "./frontends/xml.js";
+import { parseNdjsonRecords } from "./frontends/ndjson.js";
 import type { SkippedWriter, StagingWriter } from "./staging.js";
+
+/**
+ * A format front-end turns bytes into record nodes. Everything downstream —
+ * transform, validation, staging — is format-blind, so adding a format is
+ * adding one function here, not a second pipeline.
+ */
+export type FrontEnd = (
+  stream: Readable,
+  transform: FeedTransform,
+  onRecord: (record: RawRecord) => Promise<void>,
+) => Promise<void>;
+
+const FRONT_ENDS: Record<SnapshotFormat, FrontEnd> = {
+  xml: (stream, transform, onRecord) =>
+    parseXmlRecords(stream, transform.recordElement, onRecord),
+  ndjson: (stream, _transform, onRecord) => parseNdjsonRecords(stream, onRecord),
+};
+
+export function frontEndFor(format: SnapshotFormat): FrontEnd {
+  const frontEnd = FRONT_ENDS[format];
+  if (!frontEnd) throw new Error(`no front-end for snapshot format "${format}"`);
+  return frontEnd;
+}
 
 export interface StageResult {
   /** Records encountered in the Snapshot, valid or not. */
@@ -41,6 +67,7 @@ export async function stageSnapshot(
   transform: FeedTransform,
   writer: StagingWriter,
   skippedWriter: SkippedWriter,
+  format: SnapshotFormat = "xml",
 ): Promise<StageResult> {
   const result: StageResult = {
     records: 0,
@@ -52,7 +79,7 @@ export async function stageSnapshot(
   };
   const seen = new Set<string>();
 
-  await parseXmlRecords(stream, transform.recordElement, async (node) => {
+  await frontEndFor(format)(stream, transform, async (node) => {
     result.records += 1;
     const outcome = transform.transform(node);
     if (outcome.ok) {

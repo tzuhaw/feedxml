@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   try {
     const row = await pool.query(
       `select r.object_key, s.id as supplier_id, s.name as supplier_name,
-              f.id as feed_id, f.thresholds, f.skip_streak_limit, f.channel, f.source_url
+              f.id as feed_id, f.thresholds, f.skip_streak_limit, f.channel, f.format, f.source_url
        from feed_runs r
        join feeds f on f.id = r.feed_id
        join suppliers s on s.id = f.supplier_id
@@ -34,6 +34,7 @@ async function main(): Promise<void> {
       thresholds,
       skip_streak_limit,
       channel,
+      format,
       source_url,
     } = row.rows[0];
     // The deployed entrypoint only ever reads bucket objects in the canonical
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
       thresholds,
       skipStreakLimit: skip_streak_limit,
       channel,
+      format,
       sourceUrl: source_url,
     });
     if (superseded || !result) {
