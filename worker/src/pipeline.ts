@@ -67,7 +67,9 @@ export async function stageSnapshot(
   transform: FeedTransform,
   writer: StagingWriter,
   skippedWriter: SkippedWriter,
-  format: SnapshotFormat = "xml",
+  // Required, not defaulted: silently parsing an NDJSON Snapshot as XML is a
+  // whole-run failure with a message that names neither the feed nor the format.
+  format: SnapshotFormat,
 ): Promise<StageResult> {
   const result: StageResult = {
     records: 0,

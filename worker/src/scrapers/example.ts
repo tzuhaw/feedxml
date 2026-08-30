@@ -9,22 +9,30 @@ import type { ScrapeAdapter, ScrapeContext } from "../scrape.js";
  * Note what parseProduct returns: plain JSON whose keys mirror the XML feed's
  * element names, so the SAME transform serves both channels for this supplier.
  */
+/** A site that clamps ?page=N to its last page would otherwise loop forever. */
+const MAX_LISTING_PAGES = 5000;
+
 export const exampleAdapter: ScrapeAdapter = {
   supplierName: "example",
   requestDelayMs: 1500,
+  // Set this from the supplier's real catalog size before going live — the
+  // floor is what stops a truncated crawl from being published as complete.
   minimumProducts: 1,
 
   async *listProductUrls(ctx: ScrapeContext): AsyncIterable<string> {
     const base = process.env.SCRAPE_BASE_URL;
     if (!base) throw new Error("SCRAPE_BASE_URL is required for the example adapter");
-    let page = 1;
-    for (;;) {
+    const seen = new Set<string>();
+    for (let page = 1; page <= MAX_LISTING_PAGES; page++) {
       const html = await ctx.fetchText(`${base}/catalog?page=${page}`);
       const links = [...html.matchAll(/href="(\/product\/[^"]+)"/g)].map((m) => `${base}${m[1]}`);
-      if (links.length === 0) return;
-      yield* links;
-      page += 1;
+      const fresh = links.filter((l) => !seen.has(l));
+      // No links, or a page identical to one already crawled: end of catalog.
+      if (fresh.length === 0) return;
+      for (const link of fresh) seen.add(link);
+      yield* fresh;
     }
+    throw new Error(`listing exceeded ${MAX_LISTING_PAGES} pages — refusing to crawl further`);
   },
 
   parseProduct(html: string, url: string): unknown | null {

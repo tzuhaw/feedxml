@@ -116,7 +116,45 @@ Both are on the run detail page.
      `x-api-key`; `init` → `sign-part` per part → `complete`. Object keys are
      ours, not theirs.
    - **Pull**: they host it; we fetch on the schedule.
-   - **Scrape**: no supplier action; write an adapter under `src/scrapers/`.
+   - **Scrape**: no supplier action; see §4.1.
+
+### 4.1 The scrape channel
+
+A scrape runs as a **second Cloud Run job** on the same image, overriding the
+command:
+
+```
+node worker/dist/scrape-cli.js
+```
+
+Environment: `SCRAPE_ADAPTER` (the adapter key), whatever that adapter needs
+(the reference one takes `SCRAPE_BASE_URL`), `SCRAPE_USER_AGENT`, the `R2_*`
+variables, and — to skip the discovery wait — `TRIGGER_URL` plus
+`INTERNAL_TRIGGER_SECRET`. No `DATABASE_URL`: the scraper never touches the
+catalog database.
+
+Writing an adapter (`worker/src/scrapers/`): yield every product URL, parse a
+page into plain JSON whose keys mirror that supplier's XML element names (so
+one transform serves both channels), and **set `minimumProducts` from the real
+catalog size**. That floor is the safeguard: a crawl that ends early because
+the site's pagination markup changed publishes nothing rather than asserting a
+2%-sized catalog is complete. Register the adapter in `scrape-cli.ts`, and
+register the supplier's transform in `registry.ts` — `runScrape` refuses to
+start without one, so you find out in seconds instead of after a long crawl.
+
+**The scrape blind spot.** If a crawl aborts or falls under its floor, nothing
+is published — so there is no run, no Issue, and **no email** (the two emails
+only ever come from runs). A scrape supplier's catalog can therefore go stale
+silently. Until a "feed produced nothing in N hours" detector exists, watch the
+scrape job's own history in the scheduler, and check Admin → Feeds for a
+`Last run` that has stopped advancing.
+
+**Sizing.** The crawl is serial and polite by design: at a 1.5s delay, 100k
+products is over a day of wall-clock, past Cloud Run's 24h task ceiling, and
+resume is deliberately not built. Keep scrape suppliers small, or shard the
+adapter by category into several jobs. The Snapshot is buffered to `os.tmpdir()`,
+which on Cloud Run is memory-backed — budget roughly 1KB per product against
+the job's memory limit.
 
 ---
 

@@ -21,7 +21,12 @@ async function main(): Promise<void> {
   }
   const result = await runScrape(adapter);
   console.log(JSON.stringify(result));
-  await notifyReady(result.objectKey);
+
+  // The crawl succeeded and the Snapshot is published. A failed notification
+  // must NOT fail the job — a retry would re-crawl the whole site and publish
+  // a duplicate — unless nothing can ever pick the Snapshot up.
+  const notified = await notifyReady(result.objectKey);
+  if (!notified.ok) throw new Error(notified.reason);
 }
 
 main().catch((err) => {

@@ -47,10 +47,10 @@ describe("NDJSON front-end", () => {
     const { writer: fromJson } = await stage(Readable.from([`${ndjson}\n`]), "ndjson");
     const jsonShoe = fromJson.rows[0];
 
-    expect(jsonShoe?.productCode).toBe(xmlShoe?.productCode);
-    expect(jsonShoe?.title).toBe(xmlShoe?.title);
-    expect(jsonShoe?.variants).toEqual(xmlShoe?.variants);
-    expect(jsonShoe?.images).toEqual(xmlShoe?.images);
+    // Compare the WHOLE normalized product, not a chosen few fields — a
+    // partial assertion here previously hid attribute values coming through
+    // blank, which the merge would have written over the live catalog.
+    expect(jsonShoe).toEqual(xmlShoe);
   });
 
   it("Skips a malformed line as a record defect instead of failing the Run", async () => {

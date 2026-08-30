@@ -39,8 +39,17 @@ async function main(): Promise<void> {
     } = row.rows[0];
     // The deployed entrypoint only ever reads bucket objects in the canonical
     // layout; anything else (file:, path tricks) is rejected before I/O.
-    if (parseObjectKey(object_key) === null) {
+    const parsedKey = parseObjectKey(object_key);
+    if (parsedKey === null) {
       throw new Error(`run ${runId} has non-canonical object key`);
+    }
+    // Two sources of truth for the format (the key suffix and feeds.format)
+    // must agree, or the run parses bytes with the wrong front-end and fails
+    // in a way that names neither.
+    if (parsedKey.format !== format) {
+      throw new Error(
+        `run ${runId}: object key says ${parsedKey.format} but its feed is configured as ${format}`,
+      );
     }
 
     const { result, halted, superseded } = await executeRun(pool, {

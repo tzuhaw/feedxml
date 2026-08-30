@@ -17,6 +17,7 @@ async function stageFixture() {
     acmeTransform,
     writer,
     skippedWriter,
+    "xml",
   );
   return { writer, skippedWriter, result };
 }
