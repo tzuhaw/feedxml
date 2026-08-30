@@ -90,6 +90,39 @@ correct revocation is worth more than the saved query. Test: `G8`.
 
 ## Round 5 — 57/57, three consecutive clean rounds
 
+---
+
+## Round 6 — building the operator upload page
+
+### BUG-7 · Every presigned R2 URL pointed at a host that does not exist
+**Severity: high — the whole object-storage layer was inert.** Both S3 clients
+(`apps/web/lib/r2.ts` and `worker/src/source.ts`) were constructed with an
+endpoint but no addressing mode, so the AWS SDK defaulted to **virtual-host**
+style and produced `https://<bucket>.<account>.r2.cloudflarestorage.com/<key>`.
+R2 serves the bucket in the **path**, not as a subdomain, so that host does not
+resolve.
+
+Why it survived five rounds: presigning is local crypto. Signing succeeds and
+hands back a perfectly well-formed URL; nothing fails until something actually
+performs the PUT or GET. The suite never had bucket credentials, so no test ever
+reached that point — TEST-PLAN.md §H recorded "R2 channels end to end" as
+uncovered, and this is exactly the class of bug that gap was hiding.
+
+Found by asserting on the *shape* of the signed URL rather than only on the
+status code that returned it.
+
+Fix: `forcePathStyle: true` on both clients, which is what R2 documents and also
+what lets the MinIO stand-in work. Test: `D5b` in `scripts/upload-check.mjs`
+asserts the bucket is in the path and not in the host.
+
+### Not a product bug, but worth recording
+Two of the new upload checks initially failed on a second run because they
+asserted against fixture specifics — a literal supplier name, and a run count of
+exactly one — which the adversarial suite legitimately changes. Rewritten to
+assert the *rule* (the supplier in the key comes from the feed; a failed
+completion adds no runs) rather than the fixture. A test that only passes on a
+clean database is a test that will lie later.
+
 ## What the suite now covers
 
 | Area | Cases | Weighted toward |

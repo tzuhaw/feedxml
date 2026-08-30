@@ -4,8 +4,20 @@ import {
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+/** Whether object storage is wired up at all, so surfaces can say so plainly. */
+export function r2Configured(): boolean {
+  return Boolean(
+    process.env.R2_ENDPOINT &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET,
+  );
+}
 
 function r2(): { s3: S3Client; bucket: string } {
   const endpoint = process.env.R2_ENDPOINT;
@@ -16,7 +28,19 @@ function r2(): { s3: S3Client; bucket: string } {
     throw new Error("R2_* env vars are not configured");
   }
   return {
-    s3: new S3Client({ region: "auto", endpoint, credentials: { accessKeyId, secretAccessKey } }),
+    s3: new S3Client({
+      region: "auto",
+      endpoint,
+      credentials: { accessKeyId, secretAccessKey },
+      // R2's S3 endpoint serves the bucket in the PATH
+      // (https://<account>.r2.cloudflarestorage.com/<bucket>/<key>). The SDK
+      // defaults to virtual-host addressing, which would aim requests at
+      // <bucket>.<account>.r2.cloudflarestorage.com — a host that does not
+      // resolve. Presigning fails silently in that case: a URL comes back
+      // fine and only the eventual PUT fails, so it is worth pinning here.
+      // It is also what lets the MinIO stand-in work locally.
+      forcePathStyle: true,
+    }),
     bucket,
   };
 }
@@ -40,6 +64,35 @@ export async function listFeedObjectKeys(): Promise<string[]> {
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (token);
   return keys;
+}
+
+/**
+ * A presigned single PUT for an operator upload.
+ *
+ * `content-length` is a SIGNED header, which is what actually enforces the size
+ * cap: the signature only validates for a body of exactly `size` bytes, so a
+ * client that lies in `init` and then sends more gets a 403 from R2 rather than
+ * a stored oversized object. The server re-checks the stored size on completion
+ * anyway — belt and braces, since the cap protects the worker's memory budget.
+ */
+export async function signPutUrl(objectKey: string, size: number): Promise<string> {
+  const { s3, bucket } = r2();
+  return getSignedUrl(
+    s3,
+    new PutObjectCommand({ Bucket: bucket, Key: objectKey, ContentLength: size }),
+    { expiresIn: 900, signableHeaders: new Set(["content-length"]) },
+  );
+}
+
+/** Stored size in bytes, or null if the object is not there. */
+export async function headObjectSize(objectKey: string): Promise<number | null> {
+  const { s3, bucket } = r2();
+  try {
+    const res = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }));
+    return res.ContentLength ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function initMultipartUpload(objectKey: string): Promise<string> {

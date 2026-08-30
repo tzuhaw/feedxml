@@ -59,8 +59,9 @@ was unreachable. It already retried up to `MAX_ATTEMPTS` (default 3).
 | **Runs** | Full history, filterable by state. Duration trend for the last 20 successful runs. |
 | **Run detail** | Preview, verdicts, retry, re-ingest, and this run's issues with evidence. |
 | **Issues** | The inbox. Filter by scope; resolved are hidden by default. |
-| **Products** | Deactivated and pinned products; where you reverse a sweep decision. |
+| **Products** | The catalog, searchable by code or title, plus two cuts of it: **deactivated** (where you reverse a sweep decision) and **pinned**. Click any row for variants, images, attributes and that product's issue history. |
 | **Feeds** | Read-only per-feed config. Changing it means a migration. |
+| **Upload** | Push an XML snapshot by hand, up to 100 MB. See §3.1. |
 
 ### The three Issue scopes
 
@@ -101,6 +102,29 @@ Every Snapshot is kept in R2 for 180 days, so any run can be replayed.
   supersedes older pending and halted runs of that feed, like any new Snapshot.
 
 Both are on the run detail page.
+
+### 3.1 Uploading a snapshot by hand
+
+**Upload** in the panel takes an XML file up to **100 MB** and puts it through
+exactly the same path as a supplier push: same bucket, same
+`feeds/{supplier}/{timestamp}.xml` key shape, same registration, same
+thresholds. Use it to test a transform against a real file, to re-run a snapshot
+a supplier emailed you, or to onboard a supplier too small to integrate.
+
+- The file goes **browser → R2 directly** on a presigned URL. It never passes
+  through the app, which is why a 100 MB file is safe on serverless.
+- The 100 MB ceiling is for this page only, not for the system. It is what one
+  request can carry sensibly; the supplier push channel uses multipart and
+  handles the 5 GB feeds the design targets. If someone needs to load a feed
+  bigger than 100 MB by hand, put it in the bucket with `rclone`/`aws s3` and
+  call `POST /api/feeds/ready`.
+- The supplier is taken from the **feed you pick**, never from the file or the
+  browser, so an upload cannot land in another supplier's prefix.
+- **Requires `R2_*` to be configured.** Without it the page says so rather than
+  failing at the point of upload.
+- **The bucket needs a CORS rule** allowing `PUT` from the panel's origin, or
+  the browser blocks the transfer. This is the first thing to check if an upload
+  reaches 0% and stops.
 
 ---
 

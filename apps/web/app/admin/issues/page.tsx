@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getPool } from "@/lib/db";
-import { Shell, Table, Cell, Empty, ago, palette } from "../ui";
+import { Shell, Card, Chips, Chip, Table, Cell, Pill, Empty, ago } from "../ui";
 import { resolveIssueAction } from "../actions";
 import { requireAdmin } from "@/lib/guard";
 
@@ -37,69 +37,80 @@ export default async function Issues({
   );
 
   return (
-    <Shell title="Issues">
-      <p style={{ color: palette.muted }}>
+    <Shell
+      title="Issues"
+      nav="issues"
+      sub="Record issues keep the last known good product; they never drop it."
+    >
+      <Chips>
         {SCOPES.map((s) => (
-          <span key={s}>
-            <Link href={`/admin/issues?scope=${s}${showResolved ? "&status=resolved" : ""}`}>
-              {s}
-            </Link>
-            {" · "}
-          </span>
+          <Chip
+            key={s}
+            href={`/admin/issues?scope=${s}${showResolved ? "&status=resolved" : ""}`}
+            active={scope === s}
+          >
+            {s}
+          </Chip>
         ))}
-        <Link href={`/admin/issues?scope=${scope}${showResolved ? "" : "&status=resolved"}`}>
-          {showResolved ? "show open" : "show resolved"}
-        </Link>
-      </p>
-      {issues.rowCount === 0 ? (
-        <Empty what={`${showResolved ? "resolved" : "open"} issues`} />
-      ) : (
-        <Table head={["Scope", "Supplier", "Product", "Reason", "Evidence", "When", ""]}>
-          {issues.rows.map((i) => (
-            <tr key={i.id}>
-              <Cell>{i.scope}</Cell>
-              <Cell>{i.supplier ?? "—"}</Cell>
-              <Cell mono>{i.product_code ?? "—"}</Cell>
-              <Cell>
-                {i.reason}
-                {i.resolution && (
-                  <div style={{ color: palette.muted, fontSize: "0.8rem" }}>{i.resolution}</div>
-                )}
-              </Cell>
-              <Cell mono>
-                {i.evidence?.raw_fragment
-                  ? String(i.evidence.raw_fragment).slice(0, 200)
-                  : i.evidence?.breaches
-                    ? JSON.stringify(i.evidence.breaches)
-                    : "—"}
-              </Cell>
-              <Cell>{ago(i.created_at)}</Cell>
-              <Cell>
-                {i.run_id && <Link href={`/admin/runs/${i.run_id}`}>run</Link>}
-                {i.status === "open" && i.scope !== "run" && (
-                  <form action={resolveIssueAction} style={{ display: "inline" }}>
-                    <input type="hidden" name="issueId" value={i.id} />
-                    <button
-                      type="submit"
-                      style={{
-                        marginLeft: "0.5rem",
-                        background: "none",
-                        border: "none",
-                        color: "#0b5cad",
-                        cursor: "pointer",
-                        font: "inherit",
-                        padding: 0,
-                      }}
-                    >
-                      resolve
-                    </button>
-                  </form>
-                )}
-              </Cell>
-            </tr>
-          ))}
-        </Table>
-      )}
+        <Chip
+          href={`/admin/issues?scope=${scope}${showResolved ? "" : "&status=resolved"}`}
+          active={showResolved}
+        >
+          {showResolved ? "resolved" : "show resolved"}
+        </Chip>
+      </Chips>
+
+      <Card flush>
+        {issues.rowCount === 0 ? (
+          <Empty
+            title={showResolved ? "No resolved issues" : "No open issues"}
+            hint={
+              showResolved
+                ? "Issues close automatically when the product ingests cleanly."
+                : "Anything the pipeline could not parse or trust shows up here with its evidence."
+            }
+          />
+        ) : (
+          <Table head={["Scope", "Supplier", "Product", "Reason", "Evidence", "When", ""]}>
+            {issues.rows.map((i) => (
+              <tr key={i.id}>
+                <Cell>
+                  <Pill tone={i.scope === "run" ? "warn" : i.scope === "product" ? "info" : "muted"}>
+                    {i.scope}
+                  </Pill>
+                </Cell>
+                <Cell>{i.supplier ?? "—"}</Cell>
+                <Cell mono>{i.product_code ?? "—"}</Cell>
+                <Cell>
+                  {i.reason}
+                  {i.resolution && <div className="cell-sub">{i.resolution}</div>}
+                </Cell>
+                <Cell mono>
+                  {i.evidence?.raw_fragment
+                    ? String(i.evidence.raw_fragment).slice(0, 200)
+                    : i.evidence?.breaches
+                      ? JSON.stringify(i.evidence.breaches)
+                      : "—"}
+                </Cell>
+                <Cell>{ago(i.created_at)}</Cell>
+                <Cell>
+                  <div className="cell-actions">
+                    {i.run_id && <Link href={`/admin/runs/${i.run_id}`}>Run</Link>}
+                    {i.status === "open" && i.scope !== "run" && (
+                      <form action={resolveIssueAction}>
+                        <input type="hidden" name="issueId" value={i.id} />
+                        <button type="submit" className="linkbtn">
+                          Resolve
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </Cell>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Card>
     </Shell>
   );
 }

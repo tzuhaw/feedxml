@@ -15,8 +15,16 @@ import { SESSION_COOKIE, adminConfigured, readSession } from "@/lib/session";
  * action re-checks independently.
  */
 export async function requireAdmin(): Promise<string> {
-  if (!(await adminConfigured())) redirect("/");
-  const user = await readSession((await cookies()).get(SESSION_COOKIE)?.value);
+  const user = await currentAdmin();
   if (!user) redirect("/");
   return user;
+}
+
+/**
+ * The same check without the redirect, for JSON endpoints: a fetch() caller
+ * needs a 401 it can read, not a 307 to an HTML sign-in page.
+ */
+export async function currentAdmin(): Promise<string | null> {
+  if (!(await adminConfigured())) return null;
+  return readSession((await cookies()).get(SESSION_COOKIE)?.value);
 }

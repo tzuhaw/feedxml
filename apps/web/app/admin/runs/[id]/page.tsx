@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { previewApply } from "@feedxml/domain";
 import { getPool } from "@/lib/db";
-import { Shell, Table, Cell, StateBadge, ago, duration, palette } from "../../ui";
+import { Shell, Card, Table, Cell, Pill, StateBadge, Empty, ago, duration } from "../../ui";
 import { requireAdmin } from "@/lib/guard";
 import {
   approveRunAction,
@@ -67,26 +67,29 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
   const counts = run.counts ?? {};
 
   return (
-    <Shell title={`Run — ${run.supplier}`}>
-      <p className="run-meta">
-        <StateBadge state={run.state} /> · started {ago(run.created_at)} · took{" "}
-        {duration(run.created_at, run.updated_at)} · attempt {run.attempt}
-        {run.manual_reingest && " · manual re-ingest"}
+    <Shell title={`Run — ${run.supplier}`} nav="runs" sub={`Attempt ${run.attempt}`}>
+      <div className="run-meta">
+        <StateBadge state={run.state} />
+        {run.manual_reingest && <Pill tone="info">manual re-ingest</Pill>}
+        <span className="sep">·</span>
+        <span>started {ago(run.created_at)}</span>
+        <span className="sep">·</span>
+        <span>took {duration(run.created_at, run.updated_at)}</span>
         {run.superseded_by && (
           <>
-            {" "}
-            · superseded by <Link href={`/admin/runs/${run.superseded_by}`}>a newer run</Link>
+            <span className="sep">·</span>
+            <span>
+              superseded by <Link href={`/admin/runs/${run.superseded_by}`}>a newer run</Link>
+            </span>
           </>
         )}
-      </p>
+      </div>
       <p className="run-key mono">{run.object_key}</p>
       {run.error && <p className="run-error">{run.error}</p>}
 
       {preview && (
         <section className="preview-card">
-          <h2 className="card-h">
-            This snapshot needs review — here is exactly what approving does
-          </h2>
+          <h2>This snapshot needs review — here is exactly what approving does</h2>
           <ul className="preview-list">
             <li>
               <strong>{preview.deactivations.toLocaleString()}</strong> products deactivated
@@ -114,12 +117,12 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
             </p>
           )}
           {preview.creates + preview.updates === 0 && (
-            <p className="run-error">
+            <p className="run-error" style={{ marginTop: "0.75rem" }}>
               This snapshot staged no usable products at all — approving it would deactivate the
               entire catalog for this supplier. Almost certainly a truncated or broken export.
             </p>
           )}
-          <div className="act-row">
+          <div className="act-row" style={{ marginTop: "1rem" }}>
             <form action={approveRunAction}>
               <input type="hidden" name="runId" value={id} />
               <input
@@ -140,44 +143,46 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
         </section>
       )}
 
-      <section className="run-section">
-        <h2 className="card-h">Counts</h2>
-        <pre className="counts">
-          {JSON.stringify(counts, null, 2)}
-        </pre>
-      </section>
+      <Card title="Counts">
+        <pre className="counts">{JSON.stringify(counts, null, 2)}</pre>
+      </Card>
 
-      <section className="run-section act-row">
-        {awaitingVerdict && !preview && (
-          <form action={rejectRunAction}>
+      <Card title="Actions">
+        <div className="act-row">
+          {awaitingVerdict && !preview && (
+            <form action={rejectRunAction}>
+              <input type="hidden" name="runId" value={id} />
+              <Button tone="danger">Reject — discard this run</Button>
+            </form>
+          )}
+          {(run.state === "failed" || retryableStuck) && (
+            <form action={retryRunAction}>
+              <input type="hidden" name="runId" value={id} />
+              <Button>
+                {run.state === "failed" ? "Retry this run" : `Retry — abandoned in ${run.state}`}
+              </Button>
+            </form>
+          )}
+          <form action={reingestAction}>
             <input type="hidden" name="runId" value={id} />
-            <Button tone="danger">Reject — discard this run</Button>
+            <Button>Re-ingest this file as a new run</Button>
           </form>
-        )}
-        {(run.state === "failed" || retryableStuck) && (
-          <form action={retryRunAction}>
-            <input type="hidden" name="runId" value={id} />
-            <Button>
-              {run.state === "failed" ? "Retry this run" : `Retry — abandoned in ${run.state}`}
-            </Button>
-          </form>
-        )}
-        <form action={reingestAction}>
-          <input type="hidden" name="runId" value={id} />
-          <Button>Re-ingest this file as a new run</Button>
-        </form>
-      </section>
+        </div>
+      </Card>
 
-      <section>
-        <h2 className="card-h">Issues from this run ({issues.rowCount})</h2>
+      <Card title={`Issues from this run (${issues.rowCount})`} flush>
         {issues.rowCount === 0 ? (
-          <p className="muted">None.</p>
+          <Empty title="No issues" hint="Every record in this snapshot parsed cleanly." />
         ) : (
           <Table head={["Scope", "Status", "Product", "Reason", "Evidence"]}>
             {issues.rows.map((i) => (
               <tr key={i.id}>
                 <Cell>{i.scope}</Cell>
-                <Cell>{i.status === "open" ? "open" : `resolved (${i.resolution})`}</Cell>
+                <Cell>
+                  <Pill tone={i.status === "open" ? "warn" : "muted"}>
+                    {i.status === "open" ? "open" : `resolved (${i.resolution})`}
+                  </Pill>
+                </Cell>
                 <Cell mono>{i.product_code ?? "—"}</Cell>
                 <Cell>{i.reason}</Cell>
                 <Cell mono>
@@ -189,7 +194,7 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
             ))}
           </Table>
         )}
-      </section>
+      </Card>
     </Shell>
   );
 }

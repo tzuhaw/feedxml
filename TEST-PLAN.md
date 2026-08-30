@@ -104,7 +104,7 @@ Production build served locally.
 | F5 | Sweep rejects no secret | 401 | PASS |
 | F6 | Upload API rejects no auth | 401 | PASS |
 | F7 | Trigger rejects no secret | 401 | PASS |
-| F8 | Panel loads live data | **BLOCKED** — `DATABASE_URL` uses Supabase's direct host, which is IPv6-only and unreachable from Vercel. Needs the transaction pooler string. | BLOCKED |
+| F8 | Panel loads live data | Fixed by switching `DATABASE_URL` to the transaction pooler (`aws-0-<region>.pooler.supabase.com:6543`, user `postgres.<ref>`). The direct host `db.<ref>.supabase.co` is IPv6-only and unreachable from Vercel; `lib/db.ts` now refuses it with an explanation, and `scripts/check-db.mjs` finds the working string. | PASS |
 
 ## F2. Browser-driven UI (Claude browser automation)
 
@@ -120,6 +120,12 @@ Driven through a real browser against the running app, not HTTP alone.
 | Run history | State, duration, staged/applied counts, attempt | PASS |
 | Run detail | Full counts incl. the breach that halted it and `approvedBy` | PASS |
 | Sign out | Returns to the sign-in page | PASS |
+| Overview after the redesign | Status band, five metric tiles, cards; band reads "All clear" on a clean database and turns amber with a live count when snapshots await review | PASS |
+| Product catalog | Lists ingested products with status, variant and image counts — previously the page showed only deactivated and pinned products, so it read as empty on a healthy catalog | PASS |
+| Product detail | Variants (SKU, GTIN, price, stock), images, attributes and per-product issues | PASS |
+| Upload page, storage unconfigured | Says so plainly instead of erroring | PASS |
+| Nav active state | Current section is marked, and `aria-current="page"` is set | PASS |
+| Phone, 375×812 | Nav scrolls sideways, tiles reflow to two columns, tables become labelled cards | PASS |
 
 ## F3. Adversarial suite — `scripts/e2e.mjs`
 
@@ -130,11 +136,42 @@ Six product bugs found this way — see [BUGS.md](BUGS.md).
 | Run | Result |
 |---|---|
 | Rounds 1–3 (local, current code) | **57/57, 57/57, 57/57** |
-| Production | Blocked — see F8 |
+| Rounds 1–3 (local, after the panel redesign + upload page) | **57/57, 57/57, 57/57** |
+| Production | **57/57** once F8 was fixed |
 
 ```
 BASE=http://localhost:3130 DATABASE_URL=… node scripts/e2e.mjs 3
 ```
+
+Run it against a **production build** (`next build && next start`), not `next
+dev`: cases D1/D2 address server actions through
+`.next/server/server-reference-manifest.json`, and the suite needs
+`INTERNAL_TRIGGER_SECRET` and `CRON_SECRET` set on the server or the API cases
+see 401 where they expect 400/404.
+
+## F4. Operator upload — `scripts/upload-check.mjs`
+
+21 cases against `POST /api/admin/upload`, weighted toward the size cap and the
+key-ownership rule. Found BUG-7 (see [BUGS.md](BUGS.md)).
+
+| Area | Cases | Covers |
+|---|---|---|
+| Authorization | A1–A2 | 401 without a session, and auth is checked *before* the body is parsed |
+| Size cap | C2–C5 | zero, negative, exactly 100 MB, and one byte over → 413 |
+| Feed binding | C1, C6, D2 | bad uuid, unknown feed, and the object key built from the **feed's** supplier rather than anything the client sent |
+| Signed URL | D3, D5, D5b, D6 | `content-length` is a signed header (so the cap is enforced by the signature), an expiry is present, addressing is path-style, and each upload gets a distinct key |
+| Completion | E1–E3 | path traversal → 400, nothing stored → 409, and a failed completion registers no run |
+| Audit | F1 | every init is recorded against the operator |
+
+```
+DATABASE_URL=… node scripts/upload-check.mjs
+```
+
+**Not covered:** the browser → R2 PUT itself, and the HEAD that follows it. Both
+need a reachable bucket; the Docker registry would not serve the MinIO image on
+the machine this was run on, and production has no `R2_*` configured. The
+presigning, the caps and the registration logic around them are covered above —
+the transfer is not.
 
 ## G. Performance
 
@@ -156,7 +193,7 @@ not a production baseline; the design target remains 15–30 minutes for 1M.
 | Area | Why |
 |---|---|
 | Real supplier feed | None exists yet. Every transform and threshold stays provisional until one does — the largest open risk. |
-| R2 channels end to end | Needs bucket credentials; `docker compose --profile storage up` provides a MinIO stand-in when wanted. |
+| R2 channels end to end | Needs bucket credentials; `docker compose --profile storage up` provides a MinIO stand-in when wanted. **This gap hid a real bug for five rounds** — see BUG-7 — so it is the most valuable one left to close. |
 | Scrape adapter | The reference adapter targets no real site; `runScrape` is exercised only through its guards. |
 | Cloud Run execution | The worker is verified locally and in CI; the container image itself is unbuilt. |
 | Email delivery | Unconfigured; `notifyOps` logs instead, and the two trigger points are asserted in integration. |

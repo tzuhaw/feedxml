@@ -33,7 +33,16 @@ function r2(): { s3: S3Client; bucket: string } {
     throw new Error("R2_* env vars are required for bucket operations");
   }
   return {
-    s3: new S3Client({ region: "auto", endpoint, credentials: { accessKeyId, secretAccessKey } }),
+    // Path-style addressing: R2 serves the bucket in the path, not as a
+    // subdomain of the account endpoint. See apps/web/lib/r2.ts for the full
+    // reasoning — the two clients must agree or the worker cannot read what
+    // the app wrote.
+    s3: new S3Client({
+      region: "auto",
+      endpoint,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    }),
     bucket,
   };
 }

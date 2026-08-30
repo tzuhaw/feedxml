@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { getPool } from "@/lib/db";
-import { Shell, Table, Cell, StateBadge, Empty, ago, duration, palette } from "../ui";
+import {
+  Shell,
+  Card,
+  Chips,
+  Chip,
+  Table,
+  Cell,
+  StateBadge,
+  Empty,
+  ago,
+  duration,
+} from "../ui";
 import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
@@ -50,57 +61,72 @@ export default async function Runs({
   );
 
   const filters = ["all", "done", "awaiting_review", "failed", "rejected", "superseded"];
+  const stats = durations.rows[0];
 
   return (
-    <Shell title="Runs">
-      <p style={{ color: palette.muted }}>
+    <Shell
+      title="Runs"
+      nav="runs"
+      sub={
+        stats.n > 0
+          ? `Last ${stats.n} successful runs averaged ${stats.avg_secs}s`
+          : undefined
+      }
+    >
+      <Chips>
         {filters.map((f) => (
-          <span key={f}>
-            <Link href={f === "all" ? "/admin/runs" : `/admin/runs?state=${f}`}>{f}</Link>
-            {f === filters[filters.length - 1] ? "" : " · "}
-          </span>
+          <Chip
+            key={f}
+            href={f === "all" ? "/admin/runs" : `/admin/runs?state=${f}`}
+            active={f === "all" ? !state : state === f}
+          >
+            {f.replace(/_/g, " ")}
+          </Chip>
         ))}
-        {durations.rows[0].n > 0 && (
-          <> — last {durations.rows[0].n} successful runs averaged {durations.rows[0].avg_secs}s</>
+      </Chips>
+
+      <Card flush>
+        {runs.rowCount === 0 ? (
+          <Empty
+            title="No runs"
+            hint={
+              state
+                ? "No run is in this state right now."
+                : "A run appears here the moment a snapshot is registered."
+            }
+          />
+        ) : (
+          <Table head={["Supplier", "State", "Started", "Took", "Staged", "Applied", "Att.", ""]}>
+            {runs.rows.map((r) => {
+              const c = r.counts ?? {};
+              return (
+                <tr key={r.id}>
+                  <Cell>
+                    {r.supplier}
+                    {r.manual_reingest && <div className="cell-sub">re-ingest</div>}
+                  </Cell>
+                  <Cell>
+                    <StateBadge state={r.state} />
+                    {r.error && <div className="cell-sub is-error">{r.error}</div>}
+                  </Cell>
+                  <Cell>{ago(r.created_at)}</Cell>
+                  <Cell>{duration(r.created_at, r.updated_at)}</Cell>
+                  <Cell>{c.staged?.toLocaleString?.() ?? "—"}</Cell>
+                  <Cell>
+                    {c.deactivated !== undefined
+                      ? `+${c.creates ?? 0} ~${c.updates ?? 0} -${c.deactivated}`
+                      : "—"}
+                  </Cell>
+                  <Cell>{r.attempt}</Cell>
+                  <Cell>
+                    <Link href={`/admin/runs/${r.id}`}>Detail</Link>
+                  </Cell>
+                </tr>
+              );
+            })}
+          </Table>
         )}
-      </p>
-      {runs.rowCount === 0 ? (
-        <Empty what="runs" />
-      ) : (
-        <Table head={["Supplier", "State", "Started", "Duration", "Staged", "Applied", "Att.", ""]}>
-          {runs.rows.map((r) => {
-            const c = r.counts ?? {};
-            return (
-              <tr key={r.id}>
-                <Cell>
-                  {r.supplier}
-                  {r.manual_reingest && (
-                    <span style={{ color: palette.muted }}> (re-ingest)</span>
-                  )}
-                </Cell>
-                <Cell>
-                  <StateBadge state={r.state} />
-                  {r.error && (
-                    <div style={{ color: palette.danger, fontSize: "0.8rem" }}>{r.error}</div>
-                  )}
-                </Cell>
-                <Cell>{ago(r.created_at)}</Cell>
-                <Cell>{duration(r.created_at, r.updated_at)}</Cell>
-                <Cell>{c.staged?.toLocaleString?.() ?? "—"}</Cell>
-                <Cell>
-                  {c.deactivated !== undefined
-                    ? `+${c.creates ?? 0} ~${c.updates ?? 0} -${c.deactivated}`
-                    : "—"}
-                </Cell>
-                <Cell>{r.attempt}</Cell>
-                <Cell>
-                  <Link href={`/admin/runs/${r.id}`}>detail</Link>
-                </Cell>
-              </tr>
-            );
-          })}
-        </Table>
-      )}
+      </Card>
     </Shell>
   );
 }
