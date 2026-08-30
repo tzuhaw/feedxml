@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { getPool } from "@/lib/db";
 import { Shell, Table, Cell, StateBadge, Empty, ago, palette } from "./ui";
+import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function Overview() {
+  // Authorize before any data is fetched (see lib/guard.ts).
+  await requireAdmin();
+
   const pool = getPool();
   const [attention, feeds, issueCounts] = await Promise.all([
     pool.query(

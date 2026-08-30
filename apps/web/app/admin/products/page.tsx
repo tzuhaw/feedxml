@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPool } from "@/lib/db";
 import { Shell, Table, Cell, Empty, ago, palette } from "../ui";
 import { reverseDeactivationAction } from "../actions";
+import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,9 @@ export default async function Products({
 }: {
   searchParams: Promise<{ view?: string; q?: string }>;
 }) {
+  // Authorize before any data is fetched (see lib/guard.ts).
+  await requireAdmin();
+
   const { view, q } = await searchParams;
   const pinned = view === "pinned";
   const pool = getPool();

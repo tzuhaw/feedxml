@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { Shell, Table, Cell, Empty, palette } from "../ui";
+import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
  * decision 13): the panel shows what the thresholds are, migrations change them.
  */
 export default async function Feeds() {
+  // Authorize before any data is fetched (see lib/guard.ts).
+  await requireAdmin();
+
   const pool = getPool();
   const feeds = await pool.query(
     `select s.name as supplier, f.channel, f.format, f.active, f.thresholds,

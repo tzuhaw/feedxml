@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPool } from "@/lib/db";
 import { Shell, Table, Cell, Empty, ago, palette } from "../ui";
 import { resolveIssueAction } from "../actions";
+import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export default async function Issues({
 }: {
   searchParams: Promise<{ scope?: string; status?: string }>;
 }) {
+  // Authorize before any data is fetched (see lib/guard.ts).
+  await requireAdmin();
+
   const { scope: rawScope, status } = await searchParams;
   // Params reach an enum cast — unknown values must not 500 the inbox.
   const scope = SCOPES.includes(rawScope as (typeof SCOPES)[number]) ? rawScope : "all";

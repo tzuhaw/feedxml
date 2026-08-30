@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { signOut } from "../actions";
 
 /**
  * Spartan-but-functional primitives for the ops panel: readable tables,
@@ -48,7 +47,8 @@ export function Shell({ title, children }: { title: string; children: ReactNode 
             {label}
           </Link>
         ))}
-        <form action={signOut} style={{ marginLeft: "auto" }}>
+        <form action="/api/session" method="POST" style={{ marginLeft: "auto" }}>
+          <input type="hidden" name="intent" value="signout" />
           <button
             type="submit"
             style={{

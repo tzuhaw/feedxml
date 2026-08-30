@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { previewApply } from "@feedxml/domain";
 import { getPool } from "@/lib/db";
 import { Shell, Table, Cell, StateBadge, ago, duration, palette } from "../../ui";
+import { requireAdmin } from "@/lib/guard";
 import {
   approveRunAction,
   rejectRunAction,
@@ -43,7 +44,12 @@ function Button({
 }
 
 export default async function RunDetail({ params }: { params: Promise<{ id: string }> }) {
+  // Authorize before any data is fetched (see lib/guard.ts).
+  await requireAdmin();
+
   const { id } = await params;
+  // The id reaches a uuid column; anything else is a bad link, not a fault.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const pool = getPool();
   const res = await pool.query(
     `select r.*, f.supplier_id, f.skip_streak_limit, f.thresholds, s.name as supplier

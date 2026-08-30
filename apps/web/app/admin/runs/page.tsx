@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPool } from "@/lib/db";
 import { Shell, Table, Cell, StateBadge, Empty, ago, duration, palette } from "../ui";
+import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ export default async function Runs({
 }: {
   searchParams: Promise<{ state?: string }>;
 }) {
+  // Authorize before any data is fetched (see lib/guard.ts).
+  await requireAdmin();
+
   const { state: rawState } = await searchParams;
   // Params reach an enum cast, so only known values pass — a stale bookmark
   // must render an empty list, not a 500.

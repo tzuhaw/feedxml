@@ -1,13 +1,17 @@
-"use client";
+const MESSAGES: Record<string, string> = {
+  credentials: "Those credentials weren't recognised.",
+  unconfigured: "No operator accounts exist yet — create one with the adminuser script.",
+};
 
-import { useActionState } from "react";
-import { signIn } from "./actions";
-
-export default function LoginForm({ next }: { next: string }) {
-  const [error, action, pending] = useActionState(signIn, null);
+/**
+ * A plain form posting to /api/session. No client JavaScript is involved, so
+ * it works before hydration and stays testable over plain HTTP.
+ */
+export default function LoginForm({ next, error }: { next: string; error?: string }) {
+  const message = error ? (MESSAGES[error] ?? "Sign-in failed.") : null;
 
   return (
-    <form className="login" action={action}>
+    <form className="login" action="/api/session" method="POST">
       <input type="hidden" name="next" value={next} />
 
       <label className="field">
@@ -27,14 +31,14 @@ export default function LoginForm({ next }: { next: string }) {
         <input name="password" type="password" autoComplete="current-password" required />
       </label>
 
-      {error && (
+      {message && (
         <p className="error" role="alert">
-          {error}
+          {message}
         </p>
       )}
 
-      <button className="btn primary" type="submit" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+      <button className="btn primary" type="submit">
+        Sign in
       </button>
     </form>
   );
