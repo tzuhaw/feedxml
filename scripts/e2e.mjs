@@ -347,9 +347,11 @@ async function run(round) {
     return { ok: !!a.cookie && !!b.cookie && a.cookie !== b.cookie, detail: "token reused across logins" };
   });
 
-  await check("G6", "login", "GET cannot sign in (POST only)", async () => {
+  await check("G6", "login", "GET cannot sign in, and does not dead-end", async () => {
     const r = await req("/api/session?user=" + ADMIN_USER + "&password=" + ADMIN_PASS);
-    return { ok: !(r.headers.get("set-cookie") ?? "").includes("feedxml_session="), detail: "GET issued a session" };
+    const issued = (r.headers.get("set-cookie") ?? "").includes("feedxml_session=");
+    const redirects = r.status === 303 && (r.headers.get("location") ?? "").length > 0;
+    return { ok: !issued && redirects, detail: issued ? "GET issued a session" : `status ${r.status} — blank dead end` };
   });
 
   await check("G7", "login", "a body-less POST does not 500", async () => {

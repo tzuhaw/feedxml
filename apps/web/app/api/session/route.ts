@@ -10,6 +10,16 @@ export const dynamic = "force-dynamic";
  * path in the app stays testable over plain HTTP instead of only through
  * React's RSC wire format.
  */
+/**
+ * Nobody should navigate here — it exists for the login form to POST to — but
+ * landing on it by hand should not show a blank 405. Send them to the sign-in
+ * page instead. GET deliberately cannot authenticate: credentials in a URL end
+ * up in history, logs and referrers.
+ */
+export async function GET(req: Request): Promise<NextResponse> {
+  return NextResponse.redirect(new URL("/", req.url), 303);
+}
+
 export async function POST(req: Request): Promise<NextResponse> {
   let form: FormData;
   try {
