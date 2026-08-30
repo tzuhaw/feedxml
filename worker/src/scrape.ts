@@ -28,7 +28,15 @@ export interface ScrapeAdapter {
    * Parses one product page into a plain JSON record. The NDJSON front-end
    * converts it to the same node shape an XML feed produces, so the supplier's
    * transform is written once and serves both.
-   * Return null for "this page is not a product" (silently skipped, counted).
+   *
+   * Two distinct non-results, and the difference decides whether the crawl is
+   * still trustworthy:
+   * - return `null` for "this URL is not a product page" (a gift card, a care
+   *   guide). Benign and expected; not counted as loss.
+   * - THROW when a page that should have been a product could not be parsed.
+   *   That is the parser breaking, and it counts toward the loss budget,
+   *   because the product it represents will otherwise reach the catalog as
+   *   Missing and be deactivated.
    */
   parseProduct(html: string, url: string, ctx: ScrapeContext): unknown | null;
   /** Minimum gap between requests, ms. Politeness is not optional. */
@@ -49,19 +57,24 @@ export interface ScrapeAdapter {
    */
   allowedHosts?: string[];
   /**
-   * Fraction of visited pages that may fail to yield a product before the
-   * crawl refuses to publish (default 2%).
+   * Fraction of product pages that may be LOST — failed to fetch, or failed to
+   * parse — before the crawl refuses to publish (default 2%). Pages the
+   * adapter identifies as non-products are not losses and are excluded.
    *
    * This exists because the scrape channel CANNOT express Skipped. In a feed,
    * a present-but-unparseable record keeps its product alive on last known
-   * good state and raises a Record Issue. A page we fetch but can't parse
-   * produces no line at all — so to the Deactivation Sweep the product is
-   * Missing, and it goes inactive with no Issue and no email. A supplier
-   * changing one selector could otherwise deactivate a slice of the catalog
-   * silently, so a scattered parse/fetch failure rate is treated as evidence
-   * the crawl is not a complete catalog.
+   * good state and raises a Record Issue. A lost page produces no line at all
+   * — so to the Deactivation Sweep that product is Missing, and it goes
+   * inactive with no Issue and no email. A supplier changing one selector
+   * could otherwise deactivate a slice of the catalog silently, so a scattered
+   * loss rate is treated as evidence the crawl is not a complete catalog.
    */
   maxLossRatio?: number;
+  /**
+   * Below this many visited pages the ratio is not meaningful (one loss in
+   * thirty is 3%), so only the absolute floor applies. Default 50.
+   */
+  lossRatioMinSample?: number;
 }
 
 export interface ScrapeContext {
@@ -75,8 +88,10 @@ export interface ScrapeResult {
   pagesFetched: number;
   /** Pages that could not be fetched. */
   failures: number;
-  /** Pages fetched successfully that yielded no product record. */
+  /** Product pages that could not be parsed (the parser threw). */
   unparsed: number;
+  /** Pages the adapter identified as not products at all — not a loss. */
+  notProducts: number;
 }
 
 const MAX_CONSECUTIVE_FAILURES = 10;
@@ -91,6 +106,7 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
   let pagesFetched = 0;
   let failures = 0;
   let unparsed = 0;
+  let notProducts = 0;
   let consecutiveFailures = 0;
   let lastRequestAt = 0;
 
@@ -165,9 +181,19 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
         continue;
       }
 
-      const record = adapter.parseProduct(html, url, ctx);
-      if (record === null || record === undefined) {
+      let record: unknown;
+      try {
+        record = adapter.parseProduct(html, url, ctx);
+      } catch (err) {
+        // The parser broke on a page that should have been a product: a loss,
+        // because that product will reach the catalog as Missing.
         unparsed += 1;
+        ctx.log(`parse failed for ${url}: ${String(err)}`);
+        continue;
+      }
+      // Not a product page at all — expected, and not a loss.
+      if (record === null || record === undefined) {
+        notProducts += 1;
         continue;
       }
       if (!out.write(`${JSON.stringify(record)}\n`)) {
@@ -189,15 +215,18 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
       );
     }
 
-    // Loss ratio: pages we visited but got nothing from. These would reach the
-    // catalog as Missing (deactivated), never as Skipped — see maxLossRatio.
+    // Loss ratio: product pages we could not fetch or could not parse. These
+    // would reach the catalog as Missing (deactivated), never as Skipped —
+    // see maxLossRatio. Pages the adapter identified as non-products are
+    // excluded: they are a normal part of a healthy crawl.
     const lost = unparsed + failures;
     const visited = products + lost;
     const lossRatio = visited === 0 ? 0 : lost / visited;
     const maxLoss = adapter.maxLossRatio ?? 0.02;
-    if (lossRatio > maxLoss) {
+    const minSample = adapter.lossRatioMinSample ?? 50;
+    if (visited >= minSample && lossRatio > maxLoss) {
       throw new Error(
-        `crawl lost ${lost} of ${visited} pages (${(lossRatio * 100).toFixed(1)}%, limit ${(maxLoss * 100).toFixed(1)}%) — ` +
+        `crawl lost ${lost} of ${visited} product pages (${(lossRatio * 100).toFixed(1)}%, limit ${(maxLoss * 100).toFixed(1)}%) — ` +
           `those products would be deactivated as Missing, so this is not a complete catalog; not publishing`,
       );
     }
@@ -205,7 +234,7 @@ export async function runScrape(adapter: ScrapeAdapter): Promise<ScrapeResult> {
     const objectKey = buildObjectKey(adapter.supplierName, Date.now(), "ndjson");
     await uploadSnapshot(path, objectKey);
     ctx.log(`published ${products} products to ${objectKey}`);
-    return { objectKey, products, pagesFetched, failures, unparsed };
+    return { objectKey, products, pagesFetched, failures, unparsed, notProducts };
   } finally {
     out.destroy();
     await rm(dir, { recursive: true, force: true }).catch(() => {

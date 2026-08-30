@@ -109,19 +109,29 @@ export async function rejectRunAction(formData: FormData): Promise<void> {
  * so a snapshot a human discarded can never be resurrected here.
  */
 export async function retryRunAction(formData: FormData): Promise<void> {
+  // Authenticate BEFORE mutating: this action writes run state and closes
+  // Issues, and an auth failure after the fact would leave those writes with
+  // no audit row.
+  const who = await assertAdmin();
   const runId = requireId(formData, "runId");
   const pool = getPool();
-  // Retryable: a failed run, or one abandoned mid-flight (the worker was
-  // killed, so nothing will ever move it again — without this a stuck run is
-  // permanent, and for a pull feed it blocks all future scheduling).
-  // `attempt` resets: otherwise the failure email, which fires at exactly
-  // MAX_ATTEMPTS, could never fire again for this run.
+  // Retryable: a failed run, or one abandoned mid-flight — the worker
+  // heartbeats every 60s, so 10 minutes without a heartbeat means the process
+  // is genuinely gone, not merely slow.
+  //
+  // 'merging' is deliberately NOT retryable: decision 11 is that a merge in
+  // flight always finishes. Restarting one would wipe the staging rows it is
+  // reading, and its Deactivation Sweep would then find every product Missing.
+  // (Even so, `attempt` fences the worker: it is bumped here, never reset, and
+  // the worker asserts it before applying anything.)
   const claim = await pool.query(
-    `update feed_runs set state = 'pending', error = null, attempt = 0, updated_at = now()
+    `update feed_runs
+     set state = 'pending', error = null, failure_notified = false,
+         attempt = attempt + 1, updated_at = now()
      where id = $1
        and (state = 'failed'
-            or (state in ('downloading', 'staging', 'validating', 'merging')
-                and updated_at < now() - interval '30 minutes'))
+            or (state in ('downloading', 'staging', 'validating')
+                and updated_at < now() - interval '10 minutes'))
      returning id`,
     [runId],
   );
@@ -130,18 +140,21 @@ export async function retryRunAction(formData: FormData): Promise<void> {
     throw new Error(
       run.rowCount === 0
         ? `run ${runId} not found`
-        : `cannot retry a run that is ${run.rows[0].state} (in-flight runs become retryable once stuck for 30 minutes)`,
+        : run.rows[0].state === "merging"
+          ? "a merge in flight always finishes — wait for it, or re-ingest the file once it has"
+          : `cannot retry a run that is ${run.rows[0].state} (an in-flight run becomes retryable after 10 minutes without a heartbeat)`,
     );
   }
   // A stuck-run Issue is scope 'run' and so cannot be hand-resolved; retrying
-  // is the action that answers it, so it closes here.
+  // is the action that answers it, so it closes here. Matched on the evidence
+  // tag the sweep writes, not on its prose.
   await pool.query(
     `update issues set status = 'resolved', resolution = 'retried by admin', resolved_at = now()
-     where run_id = $1 and scope = 'run' and status = 'open' and reason like 'run appears stuck%'`,
+     where run_id = $1 and scope = 'run' and status = 'open' and evidence->>'kind' = 'stuck'`,
     [runId],
   );
   await pool.query(`insert into audit_log (actor, action, subject) values ($1, 'retry_run', $2)`, [
-    await actor(),
+    who,
     JSON.stringify({ run_id: runId }),
   ]);
   await tryLaunch(runId);

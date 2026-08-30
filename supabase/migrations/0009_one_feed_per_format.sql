@@ -7,5 +7,17 @@
 --
 -- Rather than let that ambiguity exist and resolve it by guessing, make it
 -- unrepresentable: one active feed per (supplier, format).
-create unique index feeds_one_active_per_format
+-- Existing installations may already hold the configuration this outlaws (the
+-- schema permitted a push and a pull feed of the same format). Deactivate the
+-- newer duplicates first so the index can be created, rather than aborting the
+-- migration with an opaque unique violation and no remediation path.
+update feeds f set active = false
+where f.active
+  and exists (
+    select 1 from feeds keep
+    where keep.active and keep.supplier_id = f.supplier_id
+      and keep.format = f.format and keep.created_at < f.created_at
+  );
+
+create unique index if not exists feeds_one_active_per_format
   on feeds (supplier_id, format) where active;

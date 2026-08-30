@@ -84,7 +84,8 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
   // an awaiting_review run (which would wipe its Issue and re-email ops).
   const claim = await pool.query(
     `update feed_runs
-     set attempt = attempt + 1, counts = null, error = null, updated_at = now()
+     set attempt = attempt + 1, counts = null, error = null,
+         started_at = now(), updated_at = now()
      where id = $1 and state not in ('superseded', 'done', 'awaiting_review')
      returning attempt`,
     [ctx.runId],
@@ -94,7 +95,25 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
     if (current.rowCount === 0) throw new Error(`run ${ctx.runId} not found`);
     return { result: null, halted: false, superseded: current.rows[0].state === "superseded" };
   }
+  // THE fencing token. Monotonic, so if anything replaces this execution (a
+  // retry, another worker) our attempt is no longer current and every
+  // destructive step below refuses. Elapsed time never proves a process is
+  // dead; a bumped attempt proves this one has been replaced.
   const attempt: number = claim.rows[0].attempt;
+
+  // Heartbeat: without it, `updated_at` only moves at phase boundaries, so a
+  // long healthy merge looks identical to a dead worker.
+  const heartbeat = setInterval(() => {
+    void pool
+      .query(
+        `update feed_runs set updated_at = now() where id = $1 and attempt = $2`,
+        [ctx.runId, attempt],
+      )
+      .catch(() => {
+        /* a failed heartbeat must never fail the run */
+      });
+  }, 60_000);
+  heartbeat.unref?.();
   await supersedeOlderRuns(pool, ctx.feedId, ctx.runId);
   await pool.query(`delete from staging_products where run_id = $1`, [ctx.runId]);
   await pool.query(`delete from staging_skipped where run_id = $1`, [ctx.runId]);
@@ -130,8 +149,8 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
          set state = 'awaiting_review',
              counts = coalesce(counts, '{}'::jsonb) || $2::jsonb,
              updated_at = now()
-         where id = $1 and state = 'validating' returning id`,
-        [ctx.runId, JSON.stringify({ ...counts, breaches })],
+         where id = $1 and state = 'validating' and attempt = $3 returning id`,
+        [ctx.runId, JSON.stringify({ ...counts, breaches }), attempt],
       );
       if (haltClaim.rowCount === 0) {
         return { result, halted: false, superseded: true };
@@ -161,18 +180,19 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
 
-    // THE safe point: claim the merge atomically. The claim loses if a newer
-    // Snapshot superseded this run mid-flight, OR if a newer run has already
+    // THE safe point: claim the merge atomically. The claim loses if this
+    // execution has been fenced (attempt bumped), if a newer Snapshot
+    // superseded this run mid-flight, or if a newer run has already
     // begun/finished its merge — an old snapshot must never apply over a
     // newer one that beat it to the catalog.
     const claim = await pool.query(
       `update feed_runs r set state = 'merging', updated_at = now()
-       where r.id = $1 and r.state = 'validating'
+       where r.id = $1 and r.state = 'validating' and r.attempt = $3
          and not exists (select 1 from feed_runs n
                          where n.feed_id = $2 and n.created_at > r.created_at
                            and n.state in ('merging', 'done'))
        returning r.id`,
-      [ctx.runId, ctx.feedId],
+      [ctx.runId, ctx.feedId, attempt],
     );
     if (claim.rowCount === 0) {
       return { result, halted: false, superseded: true };
@@ -184,19 +204,30 @@ export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcom
     return { result, halted: false, superseded: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // Never let a failure envelope overwrite a supersession that happened mid-flight.
+    // Never let a failure envelope overwrite a supersession, or a newer
+    // execution that has already fenced this one.
     await pool.query(
       `update feed_runs set state = 'failed', error = $2, updated_at = now()
-       where id = $1 and state <> 'superseded'`,
-      [ctx.runId, message],
+       where id = $1 and state <> 'superseded' and attempt = $3`,
+      [ctx.runId, message, attempt],
     );
-    if (attempt === MAX_ATTEMPTS) {
+    // Exactly one email per exhausted run, re-armed by a retry — claimed
+    // atomically so concurrent attempts can't both send it.
+    const alert = await pool.query(
+      `update feed_runs set failure_notified = true
+       where id = $1 and attempt >= $2 and not failure_notified and attempt = $3
+       returning id`,
+      [ctx.runId, MAX_ATTEMPTS, attempt],
+    );
+    if (alert.rowCount === 1) {
       await notifyOps(
         `[feedxml] ${ctx.supplierName}: run failed after ${attempt} attempts`,
         `Run ${ctx.runId} (${ctx.objectKey}) failed: ${message}\nIt will not retry again — investigate and retry from the admin panel.`,
       );
     }
     throw err;
+  } finally {
+    clearInterval(heartbeat);
   }
 }
 

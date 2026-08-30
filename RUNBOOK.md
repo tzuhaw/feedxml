@@ -70,9 +70,10 @@ was unreachable. It already retried up to `MAX_ATTEMPTS` (default 3).
   products keep appearing.
 - **Product** — the same product has been Skipped for N consecutive runs (per
   feed, default 3). The data has been stale that whole time. Worth chasing.
-- **Run** — a Snapshot needs a verdict. **These never resolve by hand** — the
-  panel won't let you. They close when you Approve or Reject, or when a newer
-  Snapshot supersedes the run. A Run Issue sitting open means a feed is frozen.
+- **Run** — a Snapshot needs a verdict, or a run is stuck. **These never
+  resolve by hand** — the panel won't let you. They close when you Approve or
+  Reject, when a newer Snapshot supersedes the run, or (for a stuck run) when
+  you Retry it. A Run Issue sitting open means a feed is frozen.
 
 ### Reversing a deactivation
 
@@ -88,8 +89,13 @@ genuinely stopped selling that product, and it should be allowed to go inactive.
 Every Snapshot is kept in R2 for 180 days, so any run can be replayed.
 
 - **Retry** re-executes the *same* run. Use it after an infrastructure failure.
-  Only available for `failed` runs — a `rejected` run is a human decision and
-  cannot be retried.
+  Available for `failed` runs, and for a run abandoned mid-flight (the worker
+  heartbeats every 60 seconds, so ten minutes of silence means the process is
+  gone). Two exclusions: a `rejected` run is a human decision and is never
+  retried, and a run that is **merging** is never restarted — a merge in
+  flight always finishes, because restarting one would delete the staging rows
+  it is reading and its sweep would then find every product missing. If a merge
+  is genuinely wedged, wait for it to fail, then retry or re-ingest.
 - **Re-ingest** creates a *new* run over the same file. Use it after fixing a
   transform or thresholds, or to revive a run that is too old to retry. It
   supersedes older pending and halted runs of that feed, like any new Snapshot.
@@ -160,14 +166,17 @@ the job's memory limit.
 
 ## 5. When something looks stuck
 
-- **A run sits in `staging`/`merging` for ages** — the sweep raises a Run Issue
-  once that run has made no progress for `max(30 min, 2× that feed's own recent
-  p95)`. Nothing retries it automatically: a killed worker leaves a run nothing
-  will ever move again, and for a pull feed that also blocks all future
-  scheduling. Check the Cloud Run logs for the run id, then use **Retry** on
-  the run — in-flight runs become retryable once stuck for 30 minutes, and
-  retrying closes the stuck Issue. Retrying is safe: it restarts the run from
-  scratch (restart-everything).
+- **A run sits in `staging` for ages** — workers heartbeat every 60 seconds, so
+  the sweep raises a Run Issue once a run has been silent for `max(30 min,
+  2× that feed's own execution p95)`. Nothing retries it automatically: a
+  killed worker leaves a run nothing will ever move again, and for a pull feed
+  that also blocks all future scheduling. Check the Cloud Run logs for the run
+  id, then use **Retry** on the run detail page (the button appears once the
+  run has been silent for ten minutes); retrying closes the stuck Issue. It is
+  safe: the retry fences the old execution, so even if that worker is somehow
+  still alive it can no longer apply anything.
+- **A run sits in `merging`** — leave it. A merge always finishes or fails on
+  its own, and it is deliberately not retryable. If it fails, retry then.
 - **No runs at all for a feed** — check Admin → Feeds (`active`?), then that
   the sweep is running (GitHub Actions → sweep workflow), then that
   `CLOUD_RUN_JOB_URL` is set. The sweep relaunches runs stuck in `pending`.

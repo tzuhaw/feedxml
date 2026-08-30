@@ -11,7 +11,7 @@ An external party whose catalog we ingest. Owns Products; authenticates with its
 _Avoid_: vendor, partner, source
 
 **Feed**:
-The standing arrangement that produces Snapshots for one Supplier over one Channel: format, schedule, thresholds, and skip-streak limit all attach here. A Supplier may have more than one Feed.
+The standing arrangement that produces Snapshots for one Supplier over one Channel: format, schedule, thresholds, and skip-streak limit all attach here. A Supplier may have more than one Feed, but only one *active* Feed per format — a Snapshot's object key names its supplier and format, not its channel, so two active Feeds of the same format could not be told apart at routing time.
 _Avoid_: using "feed" for a single file (that is a Snapshot) or a single ingestion (that is a Run)
 
 **Channel**:
@@ -52,7 +52,7 @@ A recorded anomaly awaiting attention, at one of three scopes: Record (one recor
 _Avoid_: error, alert, review item, data issue
 
 **Auto-resolution**:
-An Issue closing itself when reality moves on: Record and Product Issues resolve when the product ingests cleanly in a later Run; Run Issues resolve only by verdict (Approve, Reject, or Superseded). Whatever remains open is still true.
+An Issue closing itself when reality moves on: Record and Product Issues resolve when the product ingests cleanly in a later Run; Run Issues resolve only by the action that answers them — a verdict (Approve, Reject) for a halted Run, Supersession, or a Retry for a stuck-Run Issue. Never by hand. Whatever remains open is still true.
 
 ### Catalog
 

@@ -67,6 +67,11 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
   // deactivate everything) — check both staging tables before concluding the
   // evidence was purged.
   const awaitingVerdict = run.state === "awaiting_review";
+  // A run whose worker stopped heartbeating is recoverable; a merge in flight
+  // is never restarted (it would wipe the staging rows it is reading).
+  const retryableStuck =
+    ["downloading", "staging", "validating"].includes(run.state) &&
+    Date.now() - new Date(run.updated_at).getTime() > 10 * 60_000;
   const preview = awaitingVerdict ? await previewApply(pool, id, run.supplier_id) : null;
 
   const counts = run.counts ?? {};
@@ -175,10 +180,12 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
             <Button tone="danger">Reject — discard this run</Button>
           </form>
         )}
-        {run.state === "failed" && (
+        {(run.state === "failed" || retryableStuck) && (
           <form action={retryRunAction}>
             <input type="hidden" name="runId" value={id} />
-            <Button>Retry this run</Button>
+            <Button>
+              {run.state === "failed" ? "Retry this run" : `Retry — abandoned in ${run.state}`}
+            </Button>
           </form>
         )}
         <form action={reingestAction}>

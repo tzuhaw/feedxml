@@ -127,20 +127,23 @@ export async function GET(req: Request): Promise<NextResponse> {
   // 4. Stuck-run detector: flag, never touch state (a human decides).
   try {
     const stuck = await pool.query(
-      // The baseline is PER FEED — a 20-second feed must not inherit a 25-minute
-      // supplier's p95 — and measures time since the run last made progress,
-      // not since registration (which would include queue time and inflate the
-      // bar exactly during a launcher outage).
-      `insert into issues (scope, run_id, supplier_id, reason)
+      // Both sides of the comparison measure EXECUTION, not queue time: the
+      // baseline is each feed's own p95 of started_at→finished, and the left
+      // side is time since the last heartbeat (the worker beats every 60s, so
+      // a gap really does mean no progress). Runs predating started_at fall
+      // back to the 30-minute floor rather than skewing the baseline.
+      `insert into issues (scope, run_id, supplier_id, reason, evidence)
        select 'run', r.id, f.supplier_id,
-              'run appears stuck in ' || r.state || ' since ' || r.updated_at::text
+              'run appears stuck in ' || r.state || ' since ' || r.updated_at::text,
+              jsonb_build_object('kind', 'stuck', 'state', r.state::text)
        from feed_runs r
        join feeds f on f.id = r.feed_id
        cross join lateral (
          select coalesce(percentile_cont(0.95) within group
-                  (order by extract(epoch from updated_at - created_at)), 0) as secs
-         from (select updated_at, created_at from feed_runs prior
+                  (order by extract(epoch from updated_at - started_at)), 0) as secs
+         from (select updated_at, started_at from feed_runs prior
                where prior.feed_id = r.feed_id and prior.state = 'done'
+                 and prior.started_at is not null
                order by prior.updated_at desc limit 20) recent
        ) p95
        where r.state in ('downloading', 'staging', 'validating', 'merging')

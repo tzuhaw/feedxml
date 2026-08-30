@@ -37,8 +37,13 @@ export const exampleAdapter: ScrapeAdapter = {
 
   parseProduct(html: string, url: string): unknown | null {
     const code = /data-product-code="([^"]+)"/.exec(html)?.[1];
+    // No product code at all: this URL isn't a product page (a gift card, a
+    // care guide). Benign — not a loss.
+    if (!code) return null;
+    // It IS a product page but we couldn't read it: the parser has broken, and
+    // the product would silently deactivate. Throw so it counts as loss.
     const title = /<h1[^>]*>([^<]+)<\/h1>/.exec(html)?.[1]?.trim();
-    if (!code || !title) return null;
+    if (!title) throw new Error(`product ${code} has no readable title`);
     return {
       code,
       title,

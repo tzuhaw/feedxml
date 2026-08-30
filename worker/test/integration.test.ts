@@ -391,6 +391,30 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     expect(auto.rowCount).toBe(0);
   });
 
+  it("a fenced worker cannot apply: a bumped attempt blocks its merge claim", async () => {
+    const feed = await seedFeed(pool, "s-fence", LOOSE);
+    await runSnapshot(pool, feed, [good("A"), good("B")]);
+    const { runId, ctx } = await runSnapshot(pool, feed, [good("A"), good("B")]);
+
+    // Simulate a retry replacing this execution while a worker still holds the
+    // old attempt: rewind to validating, then bump attempt past the worker's.
+    await pool.query(
+      `update feed_runs set state = 'validating', attempt = attempt + 1 where id = $1`,
+      [runId],
+    );
+    // The stale worker re-enters; its claim carries the OLD attempt.
+    const stale = await pool.query(
+      `update feed_runs r set state = 'merging'
+       where r.id = $1 and r.state = 'validating' and r.attempt = 1 returning r.id`,
+      [runId],
+    );
+    expect(stale.rowCount).toBe(0); // fenced — it cannot start a merge
+
+    // And nothing was applied by the fenced execution.
+    expect((await product(pool, feed, "B"))?.status).toBe("active");
+    void ctx;
+  });
+
   it("re-executing a Halted run is refused (no Issue wipe, no duplicate review email)", async () => {
     const feed = await seedFeed(pool, "s-rehalt");
     await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
