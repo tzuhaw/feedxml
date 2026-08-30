@@ -7,6 +7,9 @@ export default defineConfig({
       "@feedxml/shared": fileURLToPath(
         new URL("../packages/shared/src/index.ts", import.meta.url),
       ),
+      "@feedxml/domain": fileURLToPath(
+        new URL("../packages/domain/src/index.ts", import.meta.url),
+      ),
     },
   },
   test: {

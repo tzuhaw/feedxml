@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import { resolveRunIssue } from "./issues.js";
-import { completeRun, setState } from "./run.js";
+import { completeRun, setState } from "./lifecycle.js";
 
 /**
  * Human verdicts on Halted Runs and the deactivation reversal. This is the

@@ -10,7 +10,7 @@ import {
   LOOSE,
   type FixtureProduct,
 } from "./helpers/harness.js";
-import { approveRun, rejectRun, reverseDeactivation } from "../src/admin.js";
+import { approveRun, previewApply, rejectRun, reverseDeactivation } from "@feedxml/domain";
 import { executeRun } from "../src/run.js";
 
 process.env.ALLOW_FILE_SOURCE = "1";
@@ -338,6 +338,51 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     const run = await pool.query(`select state, attempt from feed_runs where id = $1`, [haltedId]);
     expect(run.rows[0].state).toBe("superseded");
     expect(run.rows[0].attempt).toBe(1); // the no-op never claimed an attempt
+  });
+
+  it("the Consequence Preview predicts exactly what Approve then does", async () => {
+    const feed = await seedFeed(pool, "s-preview");
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+    // Pin one product that the next (shrunken) snapshot will omit.
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D")]).catch(() => {});
+    await pool.query(
+      `update products set pinned = true where supplier_id = $1 and product_code = 'E'`,
+      [feed.supplierId],
+    );
+    const { runId, halted } = await runSnapshot(pool, feed, [good("A"), good("NEW")]);
+    expect(halted).toBe(true);
+
+    const preview = await previewApply(pool, runId, feed.supplierId);
+    expect(preview).toMatchObject({ creates: 1, updates: 1, pinnedProtected: 1 });
+
+    await approveRun(pool, runId, "admin:test@example.com");
+    const run = await pool.query(`select counts from feed_runs where id = $1`, [runId]);
+    // The preview is definitionally the action: same numbers, after the fact.
+    expect(run.rows[0].counts.deactivated).toBe(preview.deactivations);
+    expect(run.rows[0].counts.creates).toBe(preview.creates);
+    // The pinned product survived the sweep it was predicted to survive.
+    expect((await product(pool, feed, "E"))?.status).toBe("active");
+  });
+
+  it("manual re-ingest replays a retained Snapshot as a new run", async () => {
+    const feed = await seedFeed(pool, "s-reingest", LOOSE);
+    const { runId: first } = await runSnapshot(pool, feed, [good("A")]);
+    const source = await pool.query(`select object_key from feed_runs where id = $1`, [first]);
+
+    // Same object key, allowed only because it is marked as a manual replay.
+    const replay = await pool.query(
+      `insert into feed_runs (feed_id, object_key, manual_reingest) values ($1, $2, true)
+       returning id`,
+      [feed.feedId, source.rows[0].object_key],
+    );
+    expect(replay.rowCount).toBe(1);
+    // While an automatic re-registration of the same key is still refused.
+    const auto = await pool.query(
+      `insert into feed_runs (feed_id, object_key) values ($1, $2)
+       on conflict do nothing returning id`,
+      [feed.feedId, source.rows[0].object_key],
+    );
+    expect(auto.rowCount).toBe(0);
   });
 
   it("re-executing a Halted run is refused (no Issue wipe, no duplicate review email)", async () => {

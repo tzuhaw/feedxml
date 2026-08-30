@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { SUPPLIER_NAME_PATTERN } from "@feedxml/shared";
-import { audit } from "./admin.js";
+import { audit } from "@feedxml/domain";
 
 /**
  * Issue (or rotate) a supplier API key for the push channel.

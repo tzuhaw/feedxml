@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_THRESHOLDS } from "@feedxml/shared";
-import { evaluateThresholds, type RunCounts } from "../src/validate.js";
+import { evaluateThresholds, type RunCounts } from "@feedxml/domain";
 
 const base: RunCounts = {
   records: 1000,

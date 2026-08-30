@@ -3,12 +3,13 @@
   "private": true,
   "workspaces": [
     "packages/shared",
+    "packages/domain",
     "worker",
     "apps/web"
   ],
   "scripts": {
-    "build": "npm run build -w packages/shared -w worker -w apps/web",
+    "build": "npm run build -w packages/shared -w packages/domain -w worker -w apps/web",
     "test": "npm run test -w worker",
-    "typecheck": "npm run typecheck -w packages/shared -w worker -w apps/web"
+    "typecheck": "npm run typecheck -w packages/shared -w packages/domain -w worker -w apps/web"
   }
 }
