@@ -252,10 +252,13 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     expect(halted).toBe(true);
     await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
 
-    await expect(approveRun(pool, staleId, "admin:test@example.com")).rejects.toThrow(/stale/);
+    // Since Sprint 3, the newer run's execution usually supersedes the halted
+    // one outright; the stale guard covers the not-yet-executed window.
+    // Either way, approving must be refused and nothing applied.
+    await expect(approveRun(pool, staleId, "admin:test@example.com")).rejects.toThrow(
+      /stale|superseded/,
+    );
     expect((await product(pool, feed, "B"))?.status).toBe("active");
-    // Reject stays available for the stale run.
-    await rejectRun(pool, staleId, "admin:test@example.com");
   });
 
   it("partial per-feed thresholds fall back to defaults instead of disabling rules", async () => {
