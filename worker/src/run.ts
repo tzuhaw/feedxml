@@ -1,12 +1,13 @@
 import type { Pool } from "pg";
-import { DEFAULT_THRESHOLDS, type FeedThresholds } from "@feedxml/shared";
-import { openSnapshot } from "./source.js";
+import { DEFAULT_THRESHOLDS, type Channel, type FeedThresholds } from "@feedxml/shared";
+import { objectExists, openSnapshot, pullToBucket } from "./source.js";
 import { transformFor } from "./registry.js";
 import { stageSnapshot, type StageResult } from "./pipeline.js";
 import { PgSkippedWriter, PgStagingWriter } from "./staging.js";
 import { applyRun, notInSnapshotSql, type ApplyResult } from "./apply.js";
 import { evaluateThresholds, type RunCounts } from "./validate.js";
 import { openRunIssue, writeRecordIssues } from "./issues.js";
+import { notifyOps } from "./notify.js";
 
 export interface RunContext {
   runId: string;
@@ -16,7 +17,18 @@ export interface RunContext {
   feedId: string;
   thresholds: FeedThresholds;
   skipStreakLimit: number;
+  channel: Channel;
+  sourceUrl: string | null;
 }
+
+export interface RunOutcome {
+  result: StageResult | null;
+  halted: boolean;
+  /** The run was superseded by a newer Snapshot — abandoned at a safe point. */
+  superseded: boolean;
+}
+
+const MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS ?? 3);
 
 /**
  * One place for every feed_runs state transition.
@@ -46,17 +58,53 @@ export async function setState(
  * The shared apply tail: merge + sweep + streaks + auto-resolution, then the
  * transition to done with counts merged. Both the validated happy path and a
  * human Approve go through here — the two paths must never drift.
+ * Retention rides along: once this Run succeeds, older successful Runs of the
+ * same Feed drop their staging rows (keep exactly the last successful run's
+ * staging — DESIGN.md decision 16).
  */
 export async function completeRun(
   pool: Pool,
   runId: string,
+  feedId: string,
   supplierId: string,
   skipStreakLimit: number,
   extraCounts: Record<string, unknown> = {},
 ): Promise<ApplyResult> {
   const applied = await applyRun(pool, runId, supplierId, skipStreakLimit);
   await setState(pool, runId, "done", { counts: { ...extraCounts, ...applied } });
+  await pool.query(
+    `delete from staging_products sp using feed_runs r
+     where sp.run_id = r.id and r.feed_id = $1 and r.id <> $2 and r.state = 'done'`,
+    [feedId, runId],
+  );
+  await pool.query(
+    `delete from staging_skipped sk using feed_runs r
+     where sk.run_id = r.id and r.feed_id = $1 and r.id <> $2 and r.state = 'done'`,
+    [feedId, runId],
+  );
   return applied;
+}
+
+/**
+ * A newer Snapshot makes older pre-merge Runs of the same Feed obsolete —
+ * including Halted ones, whose open Run Issue closes itself as "superseded"
+ * (DESIGN.md decision 21). Once a run is merging it finishes; we never
+ * cancel a merge in flight (decision 11).
+ */
+async function supersedeOlderRuns(pool: Pool, feedId: string, runId: string): Promise<void> {
+  await pool.query(
+    `with old as (
+       update feed_runs o
+       set state = 'superseded', superseded_by = $2, updated_at = now()
+       where o.feed_id = $1 and o.id <> $2
+         and o.created_at < (select created_at from feed_runs where id = $2)
+         and o.state in ('pending', 'downloading', 'staging', 'validating', 'awaiting_review')
+       returning o.id
+     )
+     update issues set status = 'resolved', resolution = 'superseded', resolved_at = now()
+     where scope = 'run' and status = 'open' and run_id in (select id from old)`,
+    [feedId, runId],
+  );
 }
 
 /**
@@ -66,26 +114,37 @@ export async function completeRun(
  * codes, its own issues, counts) are wiped on entry, so a Cloud Run retry
  * starts idempotently from zero (DESIGN.md, decision 12).
  */
-export async function executeRun(
-  pool: Pool,
-  ctx: RunContext,
-): Promise<{ result: StageResult; halted: boolean }> {
+export async function executeRun(pool: Pool, ctx: RunContext): Promise<RunOutcome> {
   // Partial per-feed config must never silently disable a rule: normalize
   // against the defaults at the single entry seam.
   const thresholds: FeedThresholds = { ...DEFAULT_THRESHOLDS, ...ctx.thresholds };
 
+  // A run that was superseded before we started is dead — don't resurrect it.
+  const current = await pool.query(`select state, attempt from feed_runs where id = $1`, [
+    ctx.runId,
+  ]);
+  if (current.rowCount === 0) throw new Error(`run ${ctx.runId} not found`);
+  if (["superseded", "done"].includes(current.rows[0].state)) {
+    return { result: null, halted: false, superseded: current.rows[0].state === "superseded" };
+  }
+
+  const attempt: number = current.rows[0].attempt + 1;
   await pool.query(
     `update feed_runs
      set attempt = attempt + 1, counts = null, error = null, updated_at = now()
      where id = $1`,
     [ctx.runId],
   );
+  await supersedeOlderRuns(pool, ctx.feedId, ctx.runId);
   await pool.query(`delete from staging_products where run_id = $1`, [ctx.runId]);
   await pool.query(`delete from staging_skipped where run_id = $1`, [ctx.runId]);
   await pool.query(`delete from issues where run_id = $1`, [ctx.runId]);
 
   try {
     await setState(pool, ctx.runId, "downloading");
+    if (ctx.channel === "pull" && ctx.sourceUrl && !(await objectExists(ctx.objectKey))) {
+      await pullToBucket(ctx.sourceUrl, ctx.objectKey);
+    }
     const stream = await openSnapshot(ctx.objectKey);
 
     await setState(pool, ctx.runId, "staging");
@@ -104,19 +163,45 @@ export async function executeRun(
     if (breaches.length > 0) {
       // Halt before applying anything: a human approves or rejects (CONTEXT.md: Halted).
       await openRunIssue(pool, ctx.runId, ctx.supplierId, breaches, { ...counts });
-      await setState(pool, ctx.runId, "awaiting_review", {
-        counts: { ...counts, breaches },
-      });
-      return { result, halted: true };
+      await setState(pool, ctx.runId, "awaiting_review", { counts: { ...counts, breaches } });
+      await notifyOps(
+        `[feedxml] ${ctx.supplierName}: snapshot needs review`,
+        `Run ${ctx.runId} halted: ${breaches.map((b) => `${b.rule} ${b.observed} > ${b.limit}`).join(", ")}.\n` +
+          `Counts: ${JSON.stringify(counts)}\nApprove or reject it in the admin panel.`,
+      );
+      return { result, halted: true, superseded: false };
     }
 
-    await setState(pool, ctx.runId, "merging");
-    await completeRun(pool, ctx.runId, ctx.supplierId, ctx.skipStreakLimit, { ...counts });
-    return { result, halted: false };
-  } catch (err) {
-    await setState(pool, ctx.runId, "failed", {
-      error: err instanceof Error ? err.message : String(err),
+    // THE safe point: claim the merge atomically. If a newer Snapshot
+    // superseded this run mid-flight, the claim fails and we abandon quietly —
+    // nothing has been applied.
+    const claim = await pool.query(
+      `update feed_runs set state = 'merging', updated_at = now()
+       where id = $1 and state = 'validating' returning id`,
+      [ctx.runId],
+    );
+    if (claim.rowCount === 0) {
+      return { result, halted: false, superseded: true };
+    }
+
+    await completeRun(pool, ctx.runId, ctx.feedId, ctx.supplierId, ctx.skipStreakLimit, {
+      ...counts,
     });
+    return { result, halted: false, superseded: false };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Never let a failure envelope overwrite a supersession that happened mid-flight.
+    await pool.query(
+      `update feed_runs set state = 'failed', error = $2, updated_at = now()
+       where id = $1 and state <> 'superseded'`,
+      [ctx.runId, message],
+    );
+    if (attempt >= MAX_ATTEMPTS) {
+      await notifyOps(
+        `[feedxml] ${ctx.supplierName}: run failed after ${attempt} attempts`,
+        `Run ${ctx.runId} (${ctx.objectKey}) failed: ${message}\nIt will not retry again — investigate and retry from the admin panel.`,
+      );
+    }
     throw err;
   }
 }

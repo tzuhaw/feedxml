@@ -1,0 +1,19 @@
+# The 5-minute safety-net trigger (DESIGN.md decision 7). Vercel Hobby crons
+# are daily-only, so the frequent sweep runs from here; the Vercel daily cron
+# in apps/web/vercel.json is the backup. GitHub schedules are best-effort —
+# a missed tick is fine, the sweep is idempotent.
+name: sweep
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the sweep endpoint
+        run: |
+          curl -fsS -m 50 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SWEEP_URL }}"

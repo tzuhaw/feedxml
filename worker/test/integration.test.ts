@@ -298,6 +298,66 @@ describe.skipIf(!testDatabaseUrl())("Sprint 2 domain rules against real Postgres
     expect(run.rows[0]).toMatchObject({ state: "done", error: null });
   });
 
+  it("a newer Snapshot supersedes a Halted run and closes its Run Issue", async () => {
+    const feed = await seedFeed(pool, "s-supersede");
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+    const { runId: haltedId, halted } = await runSnapshot(pool, feed, [good("A")]);
+    expect(halted).toBe(true);
+    const { runId: newerId } = await runSnapshot(pool, feed, [
+      good("A"), good("B"), good("C"), good("D"), good("E"),
+    ]);
+
+    const old = await pool.query(
+      `select state, superseded_by from feed_runs where id = $1`,
+      [haltedId],
+    );
+    expect(old.rows[0]).toMatchObject({ state: "superseded", superseded_by: newerId });
+    const issue = await pool.query(
+      `select status, resolution from issues where run_id = $1 and scope = 'run'`,
+      [haltedId],
+    );
+    expect(issue.rows[0]).toMatchObject({ status: "resolved", resolution: "superseded" });
+    // The stale verdict is gone from the review queue: approve now refuses.
+    await expect(approveRun(pool, haltedId, "admin:test@example.com")).rejects.toThrow(
+      /superseded|not awaiting_review/,
+    );
+  });
+
+  it("executing a superseded run is a no-op that keeps its evidence", async () => {
+    const feed = await seedFeed(pool, "s-dead-run");
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+    const { runId: haltedId, ctx } = await runSnapshot(pool, feed, [good("A")]);
+    await runSnapshot(pool, feed, [good("A"), good("B"), good("C"), good("D"), good("E")]);
+
+    const outcome = await executeRun(pool, ctx);
+    expect(outcome.superseded).toBe(true);
+    expect(outcome.result).toBeNull();
+    const run = await pool.query(`select state from feed_runs where id = $1`, [haltedId]);
+    expect(run.rows[0].state).toBe("superseded");
+    const staging = await pool.query(
+      `select count(*)::int as n from staging_products where run_id = $1`,
+      [haltedId],
+    );
+    expect(staging.rows[0].n).toBe(1); // evidence untouched by the no-op
+  });
+
+  it("retention: a successful run purges the PREVIOUS successful run's staging only", async () => {
+    const feed = await seedFeed(pool, "s-retention", LOOSE);
+    const { runId: first } = await runSnapshot(pool, feed, [good("A")]);
+    const { runId: second } = await runSnapshot(pool, feed, [good("A"), good("B")]);
+
+    const firstStaging = await pool.query(
+      `select count(*)::int as n from staging_products where run_id = $1`,
+      [first],
+    );
+    const secondStaging = await pool.query(
+      `select count(*)::int as n from staging_products where run_id = $1`,
+      [second],
+    );
+    expect(firstStaging.rows[0].n).toBe(0); // purged once the next run succeeded
+    expect(secondStaging.rows[0].n).toBe(2); // the last successful run keeps its staging
+  });
+
   it("a Record Issue auto-resolves when the product later ingests cleanly", async () => {
     const feed = await seedFeed(pool, "s-resolve", LOOSE);
     await runSnapshot(pool, feed, [good("A"), badPrice("Y")]);

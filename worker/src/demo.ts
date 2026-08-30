@@ -54,7 +54,10 @@ async function main(): Promise<void> {
       feedId,
       thresholds: feed.rows[0].thresholds,
       skipStreakLimit: feed.rows[0].skip_streak_limit,
+      channel: "push",
+      sourceUrl: null,
     });
+    if (!result) throw new Error("demo run was superseded — unexpected");
 
     const products = await pool.query(
       `select product_code, status, title, jsonb_array_length(variants) as variant_count

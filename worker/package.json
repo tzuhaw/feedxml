@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.650.0",
+    "@aws-sdk/lib-storage": "^3.650.0",
     "@feedxml/shared": "*",
+    "bcryptjs": "^2.4.3",
     "pg": "^8.13.0",
     "sax": "^1.4.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.7.0",
     "@types/pg": "^8.11.0",
     "@types/sax": "^1.2.7",

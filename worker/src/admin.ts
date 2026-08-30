@@ -30,16 +30,18 @@ export async function approveRun(pool: Pool, runId: string, actor: string): Prom
                        where n.feed_id = r.feed_id and n.id <> r.id
                          and n.created_at > r.created_at
                          and n.state not in ('failed', 'superseded'))
-     returning f.supplier_id, f.skip_streak_limit`,
+     returning f.id as feed_id, f.supplier_id, f.skip_streak_limit`,
     [runId],
   );
   if (claim.rowCount === 0) {
     throw new Error(await diagnoseClaimFailure(pool, runId, "approve"));
   }
-  const { supplier_id, skip_streak_limit } = claim.rows[0];
+  const { feed_id, supplier_id, skip_streak_limit } = claim.rows[0];
 
   try {
-    await completeRun(pool, runId, supplier_id, skip_streak_limit, { approvedBy: actor });
+    await completeRun(pool, runId, feed_id, supplier_id, skip_streak_limit, {
+      approvedBy: actor,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await setState(pool, runId, "awaiting_review", { error: `approve failed: ${message}` });

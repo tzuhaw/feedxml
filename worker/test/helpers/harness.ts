@@ -124,7 +124,13 @@ export async function runSnapshot(
   pool: Pool,
   feed: TestFeed,
   products: FixtureProduct[],
-): Promise<{ runId: string; result: StageResult; halted: boolean; ctx: RunContext }> {
+): Promise<{
+  runId: string;
+  result: StageResult | null;
+  halted: boolean;
+  superseded: boolean;
+  ctx: RunContext;
+}> {
   const objectKey = writeSnapshot(snapshotXml(products));
   const run = await pool.query(
     `insert into feed_runs (feed_id, object_key) values ($1, $2) returning id`,
@@ -139,9 +145,11 @@ export async function runSnapshot(
     feedId: feed.feedId,
     thresholds: feed.thresholds,
     skipStreakLimit: feed.skipStreakLimit,
+    channel: "push",
+    sourceUrl: null,
   };
-  const { result, halted } = await executeRun(pool, ctx);
-  return { runId, result, halted, ctx };
+  const { result, halted, superseded } = await executeRun(pool, ctx);
+  return { runId, result, halted, superseded, ctx };
 }
 
 export async function product(
