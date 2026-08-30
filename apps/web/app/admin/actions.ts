@@ -15,20 +15,48 @@ import { registerAndLaunch, tryLaunch } from "@/lib/runs";
  * because actions POST to the page URL they were rendered on.
  */
 
-async function actor(): Promise<string> {
-  // Basic-auth user from the middleware-protected request.
-  const header = (await headers()).get("authorization");
-  if (header?.startsWith("Basic ")) {
-    try {
-      const raw = atob(header.slice("Basic ".length));
-      const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
-      const user = new TextDecoder().decode(bytes).split(":")[0];
-      if (user) return `admin:${user}`;
-    } catch {
-      /* fall through */
-    }
+function decodeBasic(header: string | null): { user: string; password: string } | null {
+  if (!header?.startsWith("Basic ")) return null;
+  try {
+    // atob yields one char per BYTE; decode those as UTF-8 so non-ASCII
+    // credentials survive the round trip.
+    const raw = atob(header.slice("Basic ".length));
+    const decoded = new TextDecoder().decode(Uint8Array.from(raw, (c) => c.charCodeAt(0)));
+    const separator = decoded.indexOf(":");
+    if (separator < 0) return null;
+    return { user: decoded.slice(0, separator), password: decoded.slice(separator + 1) };
+  } catch {
+    return null;
   }
-  return "admin:unknown";
+}
+
+/**
+ * Defense in depth. Server actions are public endpoints whose only protection
+ * today is that this module is imported solely by /admin pages, which the
+ * middleware matcher covers. The day someone imports it from an unprotected
+ * route, these actions would become anonymously invokable — and one of them
+ * deactivates catalogs. So each action re-checks, here, at the point of use.
+ */
+async function assertAdmin(): Promise<string> {
+  const expectedUser = process.env.ADMIN_USER;
+  const expectedPassword = process.env.ADMIN_PASSWORD;
+  if (!expectedUser || !expectedPassword) {
+    throw new Error("admin panel is not configured");
+  }
+  const provided = decodeBasic((await headers()).get("authorization"));
+  if (
+    !provided ||
+    provided.user !== expectedUser ||
+    provided.password !== expectedPassword
+  ) {
+    throw new Error("unauthorized");
+  }
+  return `admin:${provided.user}`;
+}
+
+/** The authenticated admin, for audit rows. */
+async function actor(): Promise<string> {
+  return assertAdmin();
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,6 +74,7 @@ function requireId(formData: FormData, field: string): string {
  * from the one that was authorised (DESIGN.md decision 20).
  */
 export async function approveRunAction(formData: FormData): Promise<void> {
+  const approvedBy = await assertAdmin();
   const runId = requireId(formData, "runId");
   const shown = Number(formData.get("previewedDeactivations"));
   const pool = getPool();
@@ -62,7 +91,7 @@ export async function approveRunAction(formData: FormData): Promise<void> {
     );
   }
 
-  await approveRun(pool, runId, await actor());
+  await approveRun(pool, runId, approvedBy);
   revalidatePath("/admin/runs");
   revalidatePath(`/admin/runs/${runId}`);
 }
