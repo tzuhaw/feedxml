@@ -27,9 +27,16 @@ jobs:
           cache: npm
       - run: npm ci
       # Library packages must be built (in dependency order) before anything
-      # that imports them typechecks — shared first, then domain.
+      # that imports them typechecks: their entry points are dist/*.d.ts, which
+      # do not exist in a fresh checkout. shared -> domain -> worker.
+      #
+      # worker is in this chain because apps/web imports @feedxml/worker/run for
+      # the operator upload path. Leaving it out cost four red CI runs: it
+      # typechecks fine on any machine that has built the worker at some point,
+      # and fails only on a clean checkout, which is exactly what CI is.
       - run: npm run build -w packages/shared
       - run: npm run build -w packages/domain
+      - run: npm run build -w worker
       - run: npm run typecheck
       - run: npm test
         env:
