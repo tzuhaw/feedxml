@@ -3,11 +3,15 @@ import { buildObjectKey, parseObjectKey } from "@feedxml/shared";
 import { getPool } from "@/lib/db";
 import { currentAdmin } from "@/lib/guard";
 import { headObjectSize, r2Configured, signPutUrl } from "@/lib/r2";
+import { executeRun } from "@feedxml/worker/run";
 import { registerAndLaunch, resolveFeedForKey } from "@/lib/runs";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The inline execution below streams and merges a capped snapshot. Seconds in
+// practice; this is headroom, not an expectation.
+export const maxDuration = 300;
 
 /**
  * Operator upload (admin panel → /admin/upload).
@@ -129,7 +133,60 @@ export async function POST(req: Request): Promise<NextResponse> {
           JSON.stringify({ object_key: objectKey, run_id: run.runId, bytes: stored }),
         ],
       );
-      return NextResponse.json(run, { status: run.created ? 201 : 200 });
+
+      /*
+       * Run it now rather than leaving it pending.
+       *
+       * registerAndLaunch already tried the Cloud Run Job; `launched` is false
+       * when CLOUD_RUN_JOB_URL is not configured, and without an executor the
+       * run would sit in `pending` forever — the sweep only re-launches, it
+       * does not ingest. An operator who just uploaded a file and is told
+       * "pending" with nothing ever moving is being lied to.
+       *
+       * Executing inside the request is safe HERE and nowhere else: this path
+       * is capped at MAX_UPLOAD_BYTES, so the work is seconds and bounded. It
+       * is not a general ingestion path and must not become one — DESIGN.md's
+       * whole argument is that a multi-gigabyte parse cannot live in a
+       * serverless function. A configured worker still wins: if the launch
+       * succeeded we do not duplicate it, and executeRun's attempt-based
+       * fencing makes a double execution safe even if we raced.
+       */
+      let executed: "worker" | "inline" | "inline-failed" | null = run.launched ? "worker" : null;
+      if (!run.launched && run.created) {
+        try {
+          const ctx = await pool.query(
+            `select f.id as feed_id, f.thresholds, f.skip_streak_limit, f.channel, f.format,
+                    f.source_url, s.id as supplier_id, s.name as supplier_name
+             from feeds f join suppliers s on s.id = f.supplier_id
+             where f.id = $1`,
+            [feed.feedId],
+          );
+          const c = ctx.rows[0];
+          const outcome = await executeRun(pool, {
+            runId: run.runId,
+            objectKey,
+            supplierId: c.supplier_id,
+            supplierName: c.supplier_name,
+            feedId: c.feed_id,
+            thresholds: c.thresholds,
+            skipStreakLimit: c.skip_streak_limit,
+            channel: c.channel,
+            format: c.format,
+            sourceUrl: c.source_url,
+          });
+          executed = "inline";
+          return NextResponse.json(
+            { ...run, executed, halted: outcome.halted, counts: outcome.result ?? null },
+            { status: 201 },
+          );
+        } catch (err) {
+          // The run is registered and its own error is recorded by executeRun.
+          // Report it rather than returning a success the panel will contradict.
+          console.error(`[upload] inline execution failed for run ${run.runId}:`, err);
+          executed = "inline-failed";
+        }
+      }
+      return NextResponse.json({ ...run, executed }, { status: run.created ? 201 : 200 });
     }
 
     default:

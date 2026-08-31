@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "//vercel-build": "Vercel builds with this app as its root, so the workspace libraries it imports must be compiled here first (dependency order matters).",
-    "vercel-build": "npm run build --prefix ../../packages/shared && npm run build --prefix ../../packages/domain && next build",
+    "vercel-build": "npm run build --prefix ../../packages/shared && npm run build --prefix ../../packages/domain && npm run build --prefix ../../worker && next build",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -15,6 +15,7 @@
     "@aws-sdk/s3-request-presigner": "^3.650.0",
     "@feedxml/domain": "*",
     "@feedxml/shared": "*",
+    "@feedxml/worker": "*",
     "bcryptjs": "^2.4.3",
     "next": "^15.0.0",
     "pg": "^8.13.0",

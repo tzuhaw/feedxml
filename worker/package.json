@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "//exports": "Only ./run is exported, deliberately: dist/index.js is the CLI entrypoint and runs main() on import. The web app imports executeRun for the operator upload path (bounded by MAX_UPLOAD_BYTES) - see apps/web/app/api/admin/upload/route.ts.",
+  "exports": {
+    "./run": {
+      "types": "./dist/run.d.ts",
+      "default": "./dist/run.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
