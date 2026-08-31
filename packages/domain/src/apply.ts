@@ -42,6 +42,26 @@ export async function applyRun(
   supplierId: string,
   skipStreakLimit: number,
 ): Promise<ApplyResult> {
+  /*
+   * Give the planner statistics for the rows we just loaded, BEFORE any of the
+   * merge queries plan against them.
+   *
+   * staging_products was empty when autovacuum last looked at it, so without
+   * this every statement below plans as though it will touch ~0 staging rows
+   * and picks nested loops over what is actually hundreds of thousands. The
+   * effect is not a slowdown, it is a cliff, and a bimodal one — measured on a
+   * 25k-product snapshot, three reps each:
+   *
+   *     stale statistics   36.8s – 39.5s
+   *     ANALYZE first       1.2s –  1.3s
+   *
+   * A ~30x difference from one statement, and it removes the variance too
+   * (a 50k snapshot swung between 3s and 312s run to run). Autovacuum cannot
+   * save us here: it is asynchronous, and the merge runs milliseconds after
+   * the last INSERT commits.
+   */
+  await pool.query(`analyze staging_products`);
+
   // Pre-merge captures for audit rows — the upsert can't see old row values.
   const reactivating = await pool.query(
     `select p.product_code from products p

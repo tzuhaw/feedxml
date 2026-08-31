@@ -171,6 +171,42 @@ hours (roughly one every two hours), not one every five minutes. The sweep is
 idempotent so correctness holds, but "5-minute safety net" overstates it, and
 the workflow now says so in a comment.
 
+---
+
+## Round 8 — the merge was planning against statistics that said "empty"
+
+### BUG-10 · Stale planner statistics made the merge superlinear, and bimodal
+**Severity: high — it was the scaling ceiling, and it was invisible.**
+`applyRun` runs immediately after the staging INSERTs commit. Autovacuum is
+asynchronous, so `staging_products` still carried the statistics it had when it
+was empty. Every merge statement therefore planned as though it would touch ~0
+staging rows and chose nested loops over what was actually tens of thousands.
+
+The symptom was not a constant slowdown. It was a cliff, and the cliff moved:
+
+| records | merge, stale stats | merge, ANALYZE first |
+|---|---|---|
+| 25,000 | 36.8s – 39.5s | 1.19s – 1.34s |
+
+Measured three reps each on identical input. A ~30x difference from one
+statement. It also removed the variance: a 50k snapshot had been swinging
+between 3s and 312s run to run, purely on which plan the optimiser happened to
+pick.
+
+Why it mattered more than the raw seconds: end-to-end throughput was *falling*
+as snapshots grew — 1,274 rec/s at 10k, 579 at 25k, 292 at 50k. A pipeline whose
+throughput degrades with size does not scale by any means, and no amount of
+fan-out rescues it, because the part that was blowing up is the serial part.
+After the fix throughput is flat at ~4,200 rec/s across all three sizes, and the
+parallelisable share of a run goes from 5% to 75% at 50k.
+
+Fix: `analyze staging_products` as the first statement in `applyRun`, before any
+query plans against those rows. Reproduce with `scripts/bench-phases.mjs`.
+
+Found by measuring the phase split for the fan-out design question, not by any
+test — every correctness test passed throughout, because nothing was wrong with
+the *answers*, only with how long they took.
+
 ### Not a product bug, but worth recording
 Two of the new upload checks initially failed on a second run because they
 asserted against fixture specifics — a literal supplier name, and a run count of
