@@ -168,11 +168,33 @@ key-ownership rule. Found BUG-7 (see [BUGS.md](BUGS.md)).
 DATABASE_URL=… node scripts/upload-check.mjs
 ```
 
-**Not covered:** the browser → R2 PUT itself, and the HEAD that follows it. Both
-need a reachable bucket; the Docker registry would not serve the MinIO image on
-the machine this was run on, and production has no `R2_*` configured. The
-presigning, the caps and the registration logic around them are covered above —
-the transfer is not.
+## F5. The transfer itself — `scripts/upload-e2e.mjs`
+
+This closes the gap F4 could not: `upload-check` verifies presigning and the
+guards around it, but never moved a byte, because no bucket was reachable.
+Run against **production on Supabase Storage** — 9/9.
+
+| Check | Observed |
+|---|---|
+| `init` returns a signed URL | 200, key `feeds/acme/{timestamp}.xml` built from the **feed's** supplier |
+| **PUT to the bucket** | succeeds — the first time this path has ever actually run |
+| **Same URL, one extra byte** | rejected by storage. The size cap is enforced by the *signature*, not merely present in `SignedHeaders` as F4 could only assert structurally |
+| `complete` | registers a run; run detail page renders |
+| `complete` on a key with nothing stored | 409, and no run registered |
+| Size cap on production | 10 MB → 200, 10 MB + 1 → 413, 11 MB → 413 |
+| CORS preflight from the app origin | 200, `allow-origin` present — so the *browser* upload works, not just a server-side PUT |
+
+```
+BASE=https://feedxml.vercel.app E2E_USER=admin E2E_PASS=… node scripts/upload-e2e.mjs
+```
+
+It leaves a real run behind on purpose — that run is the evidence. Note it stays
+`pending`: no Cloud Run worker is deployed, so nothing picks runs up. Trigger,
+storage and registration are proven; the executor simply does not exist yet.
+
+**Still not covered:** a browser-driven upload through the actual file input.
+The CORS preflight and the signed PUT are verified independently, which is the
+substance of it, but no test drives the `<input type="file">` end to end.
 
 ## G. Performance
 
