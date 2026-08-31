@@ -54,4 +54,5 @@ S3 API. Deployment targets are Vercel for `apps/web` and a Cloud Run Job for
 - [RUNBOOK.md](RUNBOOK.md) — how ops answers an alert, replays a feed, onboards a supplier
 - [WALKTHROUGH.md](WALKTHROUGH.md) — the answer to the original question, file to catalog
 - [TEST-PLAN.md](TEST-PLAN.md) — what is verified, how, and the results of the last run
+- [SCALING.md](SCALING.md) — 5GB vs 50GB in the same wall-clock: measured phase split, what blocks it, and the server spec each target needs
 - [SPRINT-PLAN.md](SPRINT-PLAN.md) — how the build was sequenced

@@ -40,6 +40,7 @@ file → node events → per-supplier transform → validation → staging write
 - No mapping DSL until repetition across many supplier transforms earns it (zero sample feeds exist today — a DSL now would be invented requirements).
 - Target: 5GB / 1M products in ~15–30 minutes, inside the ~1-hour freshness expectation ("reasonably fresh"; no business event gates ingestion).
 - The only scale knob is "runs longer" (Cloud Run Jobs allow up to 24h). Fan-out parallelism is a future optimization behind the same interface — revisit together with checkpoint/resume when full-rerun stops fitting the window.
+- **[SCALING.md](SCALING.md) measures what that optimization would actually buy.** The finding worth carrying back here: before BUG-10 was fixed, only 5% of a 50k-product run was parallelisable and throughput *fell* as snapshots grew, so fan-out would have bought nothing at any worker count. After the fix it is 75%. A sharded worker was then built and measured against one Postgres: it peaks at **~2.6× on 8 shards and gets *worse* beyond that** — 16 shards are slower than 8, because the shards serialise on extending the shared `staging_products` relation. Holding wall-clock flat as feeds grow therefore needs per-shard staging partitions and a merge partitioned by supplier, not just more workers.
 
 ## 4. Staging, validation, and the tiered issue model
 
