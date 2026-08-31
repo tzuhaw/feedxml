@@ -196,12 +196,15 @@ the parallel part to widen.
 Five phases, with the barrier and the serial tail explicit:
 
 1. **Split.** One sequential scan producing record-start byte offsets — no
-   parsing, no transform, so roughly an order of magnitude cheaper than a full
-   pass. Shard count from file size, capped. NDJSON skips this entirely.
-2. **Map.** N workers, each streaming its own byte range into its own staging
-   partition. `COPY` rather than the current 500-row multi-row `INSERT` — the
-   DB-write phase is ~40% of a run now, and `COPY` is typically several times
-   faster.
+   parsing, no transform, measured at ~29× cheaper than a full pass (§4). Shard
+   count from file size, capped **at around 8** on the evidence above. NDJSON
+   skips this step entirely.
+2. **Map.** N workers, each streaming its own byte range into **its own staging
+   partition** — not a shared table. The wait profile in §4 puts `Lock / extend`
+   on the shared `staging_products` relation among the top contenders, and
+   separate relations remove that contention by construction. `COPY` rather than
+   the current 500-row multi-row `INSERT` — the DB-write phase is ~40% of a run
+   now, and `COPY` is typically several times faster.
 3. **Barrier.** Thresholds need global counts; you cannot know what is missing
    until every shard has reported.
 4. **Validate.** Unchanged — this is where a bad snapshot halts before touching
@@ -266,6 +269,17 @@ extrapolation of measured throughput. Real feeds are not synthetic ones.
 
 ```bash
 node worker/dist/genfeed.js 50000 /tmp/f50k.xml 0
+
+# §3 — phase split (parse vs DB write vs merge)
 BENCH_DB=postgres://postgres:postgres@localhost:55432/postgres \
   REPS=3 node scripts/bench-phases.mjs /tmp/f50k.xml
+
+# §4 — what fan-out actually buys
+BENCH_DB=postgres://postgres:postgres@localhost:55432/postgres \
+  node scripts/bench-shards.mjs /tmp/f50k.xml 1 2 4 8 12 16
 ```
+
+Run these against a **quiet** database. An overlapping benchmark run produced a
+`40P01 deadlock detected` between two concurrent merges — an artefact of two
+sweeps sharing one Postgres, not a property of the pipeline, which merges
+single-writer. Check `pg_stat_activity` is clear before trusting a timing.
