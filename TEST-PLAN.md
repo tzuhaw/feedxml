@@ -188,9 +188,24 @@ Run against **production on Supabase Storage** — 9/9.
 BASE=https://feedxml.vercel.app E2E_USER=admin E2E_PASS=… node scripts/upload-e2e.mjs
 ```
 
-It leaves a real run behind on purpose — that run is the evidence. Note it stays
-`pending`: no Cloud Run worker is deployed, so nothing picks runs up. Trigger,
-storage and registration are proven; the executor simply does not exist yet.
+It leaves a real run behind on purpose — that run is the evidence.
+
+**The uploaded run now executes immediately**, inline in the request, because no
+Cloud Run worker is configured and a `pending` run would otherwise never move.
+Observed on production, and it is the whole design demonstrating itself in one
+request:
+
+| Step | Observed |
+|---|---|
+| Executed | `attempt=1`, `started_at` set, **took 4s** — no worker, no cron wait |
+| Halted | `count_drop 0.5 > 0.2` and `missing_set 1 > 0.05` — the 1-product test snapshot would have deactivated the 2-product catalog |
+| Applied | **nothing** — active products still 2 |
+| Panel | Consequence Preview offers Approve (*"deactivate 2"*) / Reject, with a Run Issue open |
+| Prior pending run | correctly `superseded` by the newer snapshot |
+
+That is the halt-before-apply rule catching a real destructive snapshot, not a
+contrived one: a small file uploaded against a bigger catalog is exactly the
+truncated-export case the thresholds exist for.
 
 **Still not covered:** a browser-driven upload through the actual file input.
 The CORS preflight and the signed PUT are verified independently, which is the
