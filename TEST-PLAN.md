@@ -138,6 +138,8 @@ Six product bugs found this way — see [BUGS.md](BUGS.md).
 |---|---|
 | Rounds 1–3 (local, current code) | **57/57, 57/57, 57/57** |
 | Rounds 1–3 (local, after the panel redesign + upload page) | **57/57, 57/57, 57/57** |
+| Rounds 1–3 (local, with pagination, destructive enabled) | **62/62, 62/62, 62/62** |
+| Rounds 1–3 (production, destructive excluded) | **52/52, 52/52, 52/52**, 10 skipped |
 | Production | **57/57** once F8 was fixed |
 
 ```
@@ -165,8 +167,10 @@ key-ownership rule. Found BUG-7 (see [BUGS.md](BUGS.md)).
 | Audit | F1 | every init is recorded against the operator |
 
 ```
-DATABASE_URL=… node scripts/upload-check.mjs
+BASE=https://feedxml.vercel.app E2E_PASS=… DATABASE_URL=… node scripts/upload-check.mjs
 ```
+
+Run against production 2026-08-31: **21/21**.
 
 ## F5. The transfer itself — `scripts/upload-e2e.mjs`
 

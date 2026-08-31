@@ -12,9 +12,15 @@ if (!capMatch) throw new Error("could not read MAX_UPLOAD_BYTES from apps/web/li
 const MAX = Number(capMatch[1]) * 1024 * 1024;
 const MAX_LABEL = `${capMatch[1]}MB`;
 
-const BASE = "http://localhost:3130";
+// Env-driven like e2e.mjs and upload-e2e.mjs, so this can be pointed at a
+// real deployment. It was hardcoded to localhost, which meant it silently
+// could not run anywhere else — every authenticated case just 401d.
+const BASE = process.env.BASE ?? "http://localhost:3130";
+const USER = process.env.E2E_USER ?? "admin";
+const PASS = process.env.E2E_PASS ?? "localdev123";
 const pool = new pg.Pool({
-  connectionString: "postgres://postgres:postgres@localhost:55432/postgres",
+  connectionString:
+    process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:55432/postgres",
 });
 
 let pass = 0;
@@ -59,7 +65,7 @@ check("A2 no session, no body -> 401 (auth before parse)", r.status === 401, `go
 const login = await fetch(`${BASE}/api/session`, {
   method: "POST",
   headers: { "content-type": "application/x-www-form-urlencoded" },
-  body: new URLSearchParams({ user: "admin", password: "localdev123" }),
+  body: new URLSearchParams({ user: USER, password: PASS }),
   redirect: "manual",
 });
 const setCookie = login.headers.get("set-cookie") ?? "";
@@ -108,12 +114,18 @@ const sh = signed.searchParams.get("X-Amz-SignedHeaders") ?? "";
 check("D3 content-length is a SIGNED header (binds the size)", sh.includes("content-length"), sh);
 check("D4 url targets the bucket + key", signed.pathname.includes(init.objectKey), signed.pathname);
 check("D5 url is presigned with an expiry", signed.searchParams.has("X-Amz-Expires"), "");
-// Path-style, not virtual-host: R2 does not serve <bucket>.<account>.r2...,
-// and getting this wrong fails only at PUT time, long after signing appears
-// to have worked.
+// Path-style, not virtual-host: neither R2 nor Supabase Storage serves the
+// bucket as a subdomain, and getting this wrong fails only at PUT time, long
+// after signing appears to have worked (BUG-7).
+//
+// Assert the PROPERTY, not one provider's URL shape: the bucket appears as a
+// path segment and never as a host prefix. R2 gives /<bucket>/<key>, Supabase
+// gives /storage/v1/s3/<bucket>/<key>; an earlier version of this check
+// hardcoded R2's leading-slash form and failed on a working Supabase upload.
+const bucket = process.env.R2_BUCKET ?? "feedxml";
 check(
   "D5b path-style addressing (bucket in the path, not the host)",
-  signed.pathname.startsWith("/feedxml/") && !signed.host.startsWith("feedxml."),
+  signed.pathname.includes(`/${bucket}/`) && !signed.host.startsWith(`${bucket}.`),
   `host=${signed.host} path=${signed.pathname}`,
 );
 
