@@ -9,3 +9,6 @@ coverage/
 
 .vercel
 .env*
+
+# graphify build artifacts - generated, machine-local (interpreter path, scan root)
+graphify-out/
