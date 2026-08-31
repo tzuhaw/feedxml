@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { previewApply } from "@feedxml/domain";
 import { getPool } from "@/lib/db";
-import { Shell, Card, Table, Cell, Pill, StateBadge, Empty, ago, duration } from "../../ui";
+import { Shell, Card, Table, Cell, Pill, StateBadge, Empty, Pager, paginate, ago, duration } from "../../ui";
 import { requireAdmin } from "@/lib/guard";
 import {
   approveRunAction,
@@ -27,11 +27,20 @@ function Button({
   );
 }
 
-export default async function RunDetail({ params }: { params: Promise<{ id: string }> }) {
+const ISSUES_PER_PAGE = 25;
+
+export default async function RunDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   // Authorize before any data is fetched (see lib/guard.ts).
   await requireAdmin();
 
   const { id } = await params;
+  const { page: rawPage } = await searchParams;
   // The id reaches a uuid column; anything else is a bad link, not a fault.
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const pool = getPool();
@@ -46,9 +55,24 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
   if (res.rowCount === 0) notFound();
   const run = res.rows[0];
 
+  // A bad snapshot can raise thousands of Record Issues, so this pages rather
+  // than truncating at a fixed 50 — silent truncation here reads as "that is
+  // all of them", which is exactly wrong when triaging a broken feed.
+  const issueCount = await pool.query(
+    `select count(*)::int as n from issues where run_id = $1`,
+    [id],
+  );
+  const issueTotal: number = issueCount.rows[0].n;
+  const {
+    page: issuePage,
+    pageCount: issuePageCount,
+    offset: issueOffset,
+  } = paginate(issueTotal, rawPage, ISSUES_PER_PAGE);
   const issues = await pool.query(
     `select id, scope, status, product_code, reason, evidence, resolution
-     from issues where run_id = $1 order by scope, created_at limit 50`,
+     from issues where run_id = $1
+     order by scope, created_at, id
+     limit ${ISSUES_PER_PAGE} offset ${issueOffset}`,
     [id],
   );
 
@@ -170,7 +194,7 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
         </div>
       </Card>
 
-      <Card title={`Issues from this run (${issues.rowCount})`} flush>
+      <Card title={`Issues from this run (${issueTotal.toLocaleString()})`} flush>
         {issues.rowCount === 0 ? (
           <Empty title="No issues" hint="Every record in this snapshot parsed cleanly." />
         ) : (
@@ -195,6 +219,14 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
           </Table>
         )}
       </Card>
+
+      <Pager
+        page={issuePage}
+        pageCount={issuePageCount}
+        total={issueTotal}
+        perPage={ISSUES_PER_PAGE}
+        href={(p) => (p > 1 ? `/admin/runs/${id}?page=${p}` : `/admin/runs/${id}`)}
+      />
     </Shell>
   );
 }

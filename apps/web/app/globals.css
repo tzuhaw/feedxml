@@ -833,8 +833,49 @@ a.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
   color: var(--ink);
 }
 
+/* ---------- pagination ---------- */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+}
+.pager-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pager-controls { display: flex; align-items: center; gap: 0.4rem; }
+.pager-page {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 0.4rem;
+  white-space: nowrap;
+}
+.pager-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.34rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.pager-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Non-links, so they cannot be tabbed to or followed. */
+.pager-btn.is-disabled { opacity: 0.4; pointer-events: none; }
+
+@media (max-width: 46rem) {
+  .pager { justify-content: center; gap: 0.5rem; }
+  .pager-controls { width: 100%; justify-content: space-between; }
+  /* Thumb-sized targets on a phone. */
+  .pager-btn { min-height: 2.4rem; padding: 0.4rem 0.9rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .status.is-attention .status-dot { animation: none; }
-  .tile, .act, .chip, .navlink, .drop, .progress-bar { transition: none; }
+  .tile, .act, .chip, .navlink, .drop, .progress-bar, .pager-btn { transition: none; }
   a.tile:hover { transform: none; }
 }

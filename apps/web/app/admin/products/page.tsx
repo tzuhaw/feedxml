@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getPool } from "@/lib/db";
-import { Shell, Card, Chips, Chip, Table, Cell, Pill, Empty, ago } from "../ui";
+import { Shell, Card, Chips, Chip, Table, Cell, Pill, Empty, Pager, paginate, ago } from "../ui";
 import { reverseDeactivationAction } from "../actions";
 import { requireAdmin } from "@/lib/guard";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const VIEWS = ["catalog", "deactivated", "pinned"] as const;
 type View = (typeof VIEWS)[number];
 
-const LIMIT = 200;
+const PER_PAGE = 25;
 
 /**
  * The catalog, and the two review queues cut from it.
@@ -19,16 +19,19 @@ const LIMIT = 200;
  * sweep decision gets reversed (which pins the product, exempting it from the
  * sweep until the supplier sends it again), and `pinned` is what is currently
  * held that way.
+ *
+ * The count is fetched BEFORE the rows so the requested page can be clamped to
+ * one that exists, and so the pager knows how many pages there are.
  */
 export default async function Products({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; q?: string }>;
+  searchParams: Promise<{ view?: string; q?: string; page?: string }>;
 }) {
   // Authorize before any data is fetched (see lib/guard.ts).
   await requireAdmin();
 
-  const { view: rawView, q } = await searchParams;
+  const { view: rawView, q, page: rawPage } = await searchParams;
   const view: View = VIEWS.includes(rawView as View) ? (rawView as View) : "catalog";
   const search = q?.trim() || null;
   const pool = getPool();
@@ -43,22 +46,20 @@ export default async function Products({
   const order =
     view === "deactivated" ? "p.deactivated_at desc nulls last" : "p.updated_at desc";
 
-  const [rows, tallies] = await Promise.all([
+  // `updated_at` is not unique, so a tiebreak on the primary key is what stops
+  // a row appearing on two pages (or on neither) as Postgres reorders ties.
+  const tiebreak = "p.supplier_id, p.product_code";
+
+  const filter = `where ${where}
+       and ($1::text is null
+            or p.product_code ilike '%' || $1 || '%'
+            or p.title ilike '%' || $1 || '%')`;
+
+  const [countRes, tallies] = await Promise.all([
     pool.query(
-      `select p.supplier_id, p.product_code, p.title, p.brand, p.status, p.pinned,
-              p.deactivated_at, p.skip_streak, p.updated_at, s.name as supplier,
-              case when jsonb_typeof(p.variants) = 'array'
-                   then jsonb_array_length(p.variants) else 0 end as variant_count,
-              case when jsonb_typeof(p.images) = 'array'
-                   then jsonb_array_length(p.images) else 0 end as image_count,
-              count(*) over () ::int as total
+      `select count(*)::int as n
        from products p join suppliers s on s.id = p.supplier_id
-       where ${where}
-         and ($1::text is null
-              or p.product_code ilike '%' || $1 || '%'
-              or p.title ilike '%' || $1 || '%')
-       order by ${order}
-       limit ${LIMIT}`,
+       ${filter}`,
       [search],
     ),
     pool.query(
@@ -70,18 +71,39 @@ export default async function Products({
     ),
   ]);
 
+  const total: number = countRes.rows[0].n;
+  const { page, pageCount, offset } = paginate(total, rawPage, PER_PAGE);
+
+  const rows = await pool.query(
+    `select p.supplier_id, p.product_code, p.title, p.brand, p.status, p.pinned,
+            p.deactivated_at, p.skip_streak, p.updated_at, s.name as supplier,
+            case when jsonb_typeof(p.variants) = 'array'
+                 then jsonb_array_length(p.variants) else 0 end as variant_count,
+            case when jsonb_typeof(p.images) = 'array'
+                 then jsonb_array_length(p.images) else 0 end as image_count
+     from products p join suppliers s on s.id = p.supplier_id
+     ${filter}
+     order by ${order}, ${tiebreak}
+     limit ${PER_PAGE} offset ${offset}`,
+    [search],
+  );
+
   const n = tallies.rows[0];
-  const total: number = rows.rows[0]?.total ?? 0;
-  const qs = (v: View) => `/admin/products?view=${v}${search ? `&q=${encodeURIComponent(search)}` : ""}`;
+  // Changing view or search resets to page 1; paging preserves both.
+  const qs = (v: View) =>
+    `/admin/products?view=${v}${search ? `&q=${encodeURIComponent(search)}` : ""}`;
+  const pageHref = (p: number) => `${qs(view)}${p > 1 ? `&page=${p}` : ""}`;
 
   return (
     <Shell
       title="Products"
       nav="products"
       sub={
-        total > LIMIT
-          ? `Showing the first ${LIMIT} of ${total.toLocaleString()} — narrow with the filter`
-          : `${total.toLocaleString()} ${total === 1 ? "product" : "products"}`
+        total === 0
+          ? undefined
+          : `${total.toLocaleString()} ${total === 1 ? "product" : "products"}${
+              pageCount > 1 ? ` · page ${page} of ${pageCount}` : ""
+            }`
       }
     >
       <Chips>
@@ -160,8 +182,10 @@ export default async function Products({
         )}
       </Card>
 
+      <Pager page={page} pageCount={pageCount} total={total} perPage={PER_PAGE} href={pageHref} />
+
       {view === "pinned" && (
-        <p className="muted" style={{ fontSize: "0.85rem" }}>
+        <p className="muted" style={{ fontSize: "0.85rem", marginTop: "0.9rem" }}>
           A pin clears itself when the supplier sends the product again.
         </p>
       )}

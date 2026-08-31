@@ -504,6 +504,47 @@ async function run(round) {
     };
   });
 
+  /*
+   * Pagination. Two failure modes worth guarding: a pager that does not clamp
+   * (a stale ?page=999 then renders an empty table, which reads as "the
+   * catalog is gone"), and a pager whose links drop the active filter, which
+   * silently resets a search on the second page. React splits adjacent text
+   * nodes with <!-- -->, so strip comments before matching.
+   */
+  const strip = (h) => h.replace(/<!--.*?-->/g, "");
+  const panelGet = async (path) => {
+    const token = await signToken(ADMIN_USER, Date.now() + 1e6);
+    const r = await req(path, { headers: { cookie: `feedxml_session=${token}` } });
+    return { status: r.status, html: strip(await r.text()) };
+  };
+
+  await check("J1", "panel", "a list page never renders more than its page size", async () => {
+    const { html } = await panelGet("/admin/products");
+    const bodyRows = (html.match(/<tr>/g) || []).length - (html.match(/<thead>/g) || []).length;
+    return { ok: bodyRows <= 25, detail: `${bodyRows} body rows on one page` };
+  });
+
+  await check("J2", "panel", "an out-of-range page clamps to a real one", async () => {
+    const { status, html } = await panelGet("/admin/products?page=99999");
+    if (status !== 200) return { ok: false, detail: `status ${status}` };
+    const m = /Page (\d+) of (\d+)/.exec(html);
+    if (!m) return { ok: true, detail: "single page, no pager - nothing to clamp" };
+    return { ok: m[1] === m[2], detail: `clamped to page ${m[1]} of ${m[2]}` };
+  });
+
+  await check("J3", "panel", "a non-numeric page does not 500", async () => {
+    const { status } = await panelGet("/admin/products?page=banana");
+    return { ok: status === 200, detail: `status ${status}` };
+  });
+
+  await check("J4", "panel", "pager links keep the active filter", async () => {
+    const { html } = await panelGet("/admin/products?view=deactivated");
+    const hrefs = [...html.matchAll(/class="pager-btn"[^>]*href="([^"]+)"/g)].map((m) => m[1]);
+    if (hrefs.length === 0) return { ok: true, detail: "single page, no pager links" };
+    const lost = hrefs.filter((h) => !h.includes("view=deactivated"));
+    return { ok: lost.length === 0, detail: `pager links dropped the view: ${lost.join(", ")}` };
+  });
+
   // ---- F. Data integrity invariants -----------------------------------------
   await check("F1", "data", "no product is ever hard-deleted by a sweep", async () => {
     const r = await pool.query(`select count(*)::int n from products where status not in ('active','inactive')`);

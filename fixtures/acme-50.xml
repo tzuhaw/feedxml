@@ -1,0 +1,1352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog supplier="acme" generated="2026-08-31T04:40:00Z">
+  <product code="ACME-101">
+    <title>Trail Running Shoe</title>
+    <description>Trail Running Shoe in ripstop nylon. Built for footwear use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-101-42-BLU" gtin="4006300810000">
+        <price>19.95</price>
+        <currency>EUR</currency>
+        <stock>0</stock>
+      </variant>
+      <variant sku="ACME-101-43-BLU" gtin="4006300810001">
+        <price>24.95</price>
+        <currency>EUR</currency>
+        <stock>5</stock>
+      </variant>
+      <variant sku="ACME-101-44-BLU" gtin="4006300810002">
+        <price>29.95</price>
+        <currency>EUR</currency>
+        <stock>10</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-101-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">footwear</attribute>
+      <attribute name="colour">blue</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-102">
+    <title>Insulated Water Bottle 750ml</title>
+    <description>Insulated Water Bottle 750ml in merino wool. Built for hydration use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-102-750ML-STE" gtin="4006300810007">
+        <price>54.95</price>
+        <currency>EUR</currency>
+        <stock>13</stock>
+      </variant>
+      <variant sku="ACME-102-750ML-MAT" gtin="4006300810008">
+        <price>59.95</price>
+        <currency>EUR</currency>
+        <stock>18</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-102-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-102-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">hydration</attribute>
+      <attribute name="colour">matte black</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-103">
+    <title>Merino Base Layer</title>
+    <description>Merino Base Layer in recycled polyester. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-103-S-CHA" gtin="4006300810014">
+        <price>89.95</price>
+        <currency>EUR</currency>
+        <stock>26</stock>
+      </variant>
+      <variant sku="ACME-103-M-CHA" gtin="4006300810015">
+        <price>94.95</price>
+        <currency>EUR</currency>
+        <stock>31</stock>
+      </variant>
+      <variant sku="ACME-103-L-CHA" gtin="4006300810016">
+        <price>99.95</price>
+        <currency>EUR</currency>
+        <stock>36</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-103-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-103-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-103-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">charcoal</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-104">
+    <title>Climbing Rope 60m</title>
+    <description>Climbing Rope 60m in anodised aluminium. Built for climbing use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-104-60M-RED" gtin="4006300810021">
+        <price>124.95</price>
+        <currency>EUR</currency>
+        <stock>39</stock>
+      </variant>
+      <variant sku="ACME-104-60M-GRE" gtin="4006300810022">
+        <price>129.95</price>
+        <currency>EUR</currency>
+        <stock>44</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-104-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">climbing</attribute>
+      <attribute name="colour">green</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-105">
+    <title>Alpine Backpack 35L</title>
+    <description>Alpine Backpack 35L in stainless steel. Built for packs use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-105-35L-SLA" gtin="4006300810028">
+        <price>39.95</price>
+        <currency>EUR</currency>
+        <stock>52</stock>
+      </variant>
+      <variant sku="ACME-105-35L-OLI" gtin="4006300810029">
+        <price>44.95</price>
+        <currency>EUR</currency>
+        <stock>57</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-105-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-105-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">packs</attribute>
+      <attribute name="colour">slate</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-106">
+    <title>Headlamp 400lm</title>
+    <description>Headlamp 400lm in ripstop nylon. Built for lighting use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-106-ONESIZE-BLA" gtin="4006300810035">
+        <price>74.95</price>
+        <currency>EUR</currency>
+        <stock>5</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-106-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-106-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-106-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">lighting</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-107">
+    <title>Down Jacket 700FP</title>
+    <description>Down Jacket 700FP in merino wool. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-107-S-EMB" gtin="4006300810042">
+        <price>109.95</price>
+        <currency>EUR</currency>
+        <stock>18</stock>
+      </variant>
+      <variant sku="ACME-107-M-EMB" gtin="4006300810043">
+        <price>114.95</price>
+        <currency>EUR</currency>
+        <stock>23</stock>
+      </variant>
+      <variant sku="ACME-107-L-EMB" gtin="4006300810044">
+        <price>119.95</price>
+        <currency>EUR</currency>
+        <stock>28</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-107-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">ember</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-108">
+    <title>Trekking Poles</title>
+    <description>Trekking Poles in recycled polyester. Built for accessories use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-108-120CM-CAR" gtin="4006300810049">
+        <price>24.95</price>
+        <currency>EUR</currency>
+        <stock>31</stock>
+      </variant>
+      <variant sku="ACME-108-130CM-CAR" gtin="4006300810050">
+        <price>29.95</price>
+        <currency>EUR</currency>
+        <stock>36</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-108-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-108-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">accessories</attribute>
+      <attribute name="colour">carbon</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-109">
+    <title>Waterproof Shell</title>
+    <description>Waterproof Shell in anodised aluminium. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-109-M-STO" gtin="4006300810056">
+        <price>59.95</price>
+        <currency>EUR</currency>
+        <stock>44</stock>
+      </variant>
+      <variant sku="ACME-109-L-STO" gtin="4006300810057">
+        <price>64.95</price>
+        <currency>EUR</currency>
+        <stock>49</stock>
+      </variant>
+      <variant sku="ACME-109-M-MOS" gtin="4006300810058">
+        <price>69.95</price>
+        <currency>EUR</currency>
+        <stock>54</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-109-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-109-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-109-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">storm</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-110">
+    <title>Camp Stove Compact</title>
+    <description>Camp Stove Compact in stainless steel. Built for cooking use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-110-ONESIZE-SIL" gtin="4006300810063">
+        <price>94.95</price>
+        <currency>EUR</currency>
+        <stock>57</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-110-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">cooking</attribute>
+      <attribute name="colour">silver</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-111">
+    <title>Trail Running Shoe Mk2</title>
+    <description>Trail Running Shoe Mk2 in ripstop nylon. Built for footwear use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-111-42-BLU" gtin="4006300810070">
+        <price>129.95</price>
+        <currency>EUR</currency>
+        <stock>10</stock>
+      </variant>
+      <variant sku="ACME-111-43-BLU" gtin="4006300810071">
+        <price>134.95</price>
+        <currency>EUR</currency>
+        <stock>15</stock>
+      </variant>
+      <variant sku="ACME-111-44-BLU" gtin="4006300810072">
+        <price>139.95</price>
+        <currency>EUR</currency>
+        <stock>20</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-111-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-111-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">footwear</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-112">
+    <title>Insulated Water Bottle 750ml Mk2</title>
+    <description>Insulated Water Bottle 750ml Mk2 in merino wool. Built for hydration use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-112-750ML-STE" gtin="4006300810077">
+        <price>44.95</price>
+        <currency>EUR</currency>
+        <stock>23</stock>
+      </variant>
+      <variant sku="ACME-112-750ML-MAT" gtin="4006300810078">
+        <price>49.95</price>
+        <currency>EUR</currency>
+        <stock>28</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-112-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-112-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-112-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">hydration</attribute>
+      <attribute name="colour">matte black</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-113">
+    <title>Merino Base Layer Mk2</title>
+    <description>Merino Base Layer Mk2 in recycled polyester. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-113-S-CHA" gtin="4006300810084">
+        <price>79.95</price>
+        <currency>EUR</currency>
+        <stock>36</stock>
+      </variant>
+      <variant sku="ACME-113-M-CHA" gtin="4006300810085">
+        <price>84.95</price>
+        <currency>EUR</currency>
+        <stock>41</stock>
+      </variant>
+      <variant sku="ACME-113-L-CHA" gtin="4006300810086">
+        <price>89.95</price>
+        <currency>EUR</currency>
+        <stock>46</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-113-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">charcoal</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-114">
+    <title>Climbing Rope 60m Mk2</title>
+    <description>Climbing Rope 60m Mk2 in anodised aluminium. Built for climbing use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-114-60M-RED" gtin="4006300810091">
+        <price>114.95</price>
+        <currency>EUR</currency>
+        <stock>49</stock>
+      </variant>
+      <variant sku="ACME-114-60M-GRE" gtin="4006300810092">
+        <price>119.95</price>
+        <currency>EUR</currency>
+        <stock>54</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-114-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-114-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">climbing</attribute>
+      <attribute name="colour">green</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-115">
+    <title>Alpine Backpack 35L Mk2</title>
+    <description>Alpine Backpack 35L Mk2 in stainless steel. Built for packs use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-115-35L-SLA" gtin="4006300810098">
+        <price>29.95</price>
+        <currency>EUR</currency>
+        <stock>2</stock>
+      </variant>
+      <variant sku="ACME-115-35L-OLI" gtin="4006300810099">
+        <price>34.95</price>
+        <currency>EUR</currency>
+        <stock>7</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-115-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-115-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-115-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">packs</attribute>
+      <attribute name="colour">slate</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-116">
+    <title>Headlamp 400lm Mk2</title>
+    <description>Headlamp 400lm Mk2 in ripstop nylon. Built for lighting use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-116-ONESIZE-BLA" gtin="4006300810105">
+        <price>64.95</price>
+        <currency>EUR</currency>
+        <stock>15</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-116-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">lighting</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-117">
+    <title>Down Jacket 700FP Mk2</title>
+    <description>Down Jacket 700FP Mk2 in merino wool. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-117-S-EMB" gtin="4006300810112">
+        <price>99.95</price>
+        <currency>EUR</currency>
+        <stock>28</stock>
+      </variant>
+      <variant sku="ACME-117-M-EMB" gtin="4006300810113">
+        <price>104.95</price>
+        <currency>EUR</currency>
+        <stock>33</stock>
+      </variant>
+      <variant sku="ACME-117-L-EMB" gtin="4006300810114">
+        <price>109.95</price>
+        <currency>EUR</currency>
+        <stock>38</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-117-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-117-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">ember</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-118">
+    <title>Trekking Poles Mk2</title>
+    <description>Trekking Poles Mk2 in recycled polyester. Built for accessories use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-118-120CM-CAR" gtin="4006300810119">
+        <price>134.95</price>
+        <currency>EUR</currency>
+        <stock>41</stock>
+      </variant>
+      <variant sku="ACME-118-130CM-CAR" gtin="4006300810120">
+        <price>139.95</price>
+        <currency>EUR</currency>
+        <stock>46</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-118-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-118-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-118-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">accessories</attribute>
+      <attribute name="colour">carbon</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-119">
+    <title>Waterproof Shell Mk2</title>
+    <description>Waterproof Shell Mk2 in anodised aluminium. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-119-M-STO" gtin="4006300810126">
+        <price>49.95</price>
+        <currency>EUR</currency>
+        <stock>54</stock>
+      </variant>
+      <variant sku="ACME-119-L-STO" gtin="4006300810127">
+        <price>54.95</price>
+        <currency>EUR</currency>
+        <stock>59</stock>
+      </variant>
+      <variant sku="ACME-119-M-MOS" gtin="4006300810128">
+        <price>59.95</price>
+        <currency>EUR</currency>
+        <stock>4</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-119-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">storm</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-120">
+    <title>Camp Stove Compact Mk2</title>
+    <description>Camp Stove Compact Mk2 in stainless steel. Built for cooking use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-120-ONESIZE-SIL" gtin="4006300810133">
+        <price>84.95</price>
+        <currency>EUR</currency>
+        <stock>7</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-120-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-120-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">cooking</attribute>
+      <attribute name="colour">silver</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-121">
+    <title>Trail Running Shoe Mk3</title>
+    <description>Trail Running Shoe Mk3 in ripstop nylon. Built for footwear use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-121-42-BLU" gtin="4006300810140">
+        <price>119.95</price>
+        <currency>EUR</currency>
+        <stock>20</stock>
+      </variant>
+      <variant sku="ACME-121-43-BLU" gtin="4006300810141">
+        <price>124.95</price>
+        <currency>EUR</currency>
+        <stock>25</stock>
+      </variant>
+      <variant sku="ACME-121-44-BLU" gtin="4006300810142">
+        <price>129.95</price>
+        <currency>EUR</currency>
+        <stock>30</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-121-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-121-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-121-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">footwear</attribute>
+      <attribute name="colour">red</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-122">
+    <title>Insulated Water Bottle 750ml Mk3</title>
+    <description>Insulated Water Bottle 750ml Mk3 in merino wool. Built for hydration use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-122-750ML-STE" gtin="4006300810147">
+        <price>34.95</price>
+        <currency>EUR</currency>
+        <stock>33</stock>
+      </variant>
+      <variant sku="ACME-122-750ML-MAT" gtin="4006300810148">
+        <price>39.95</price>
+        <currency>EUR</currency>
+        <stock>38</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-122-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">hydration</attribute>
+      <attribute name="colour">matte black</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-123">
+    <title>Merino Base Layer Mk3</title>
+    <description>Merino Base Layer Mk3 in recycled polyester. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-123-S-CHA" gtin="4006300810154">
+        <price>69.95</price>
+        <currency>EUR</currency>
+        <stock>46</stock>
+      </variant>
+      <variant sku="ACME-123-M-CHA" gtin="4006300810155">
+        <price>74.95</price>
+        <currency>EUR</currency>
+        <stock>51</stock>
+      </variant>
+      <variant sku="ACME-123-L-CHA" gtin="4006300810156">
+        <price>79.95</price>
+        <currency>EUR</currency>
+        <stock>56</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-123-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-123-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">charcoal</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-124">
+    <title>Climbing Rope 60m Mk3</title>
+    <description>Climbing Rope 60m Mk3 in anodised aluminium. Built for climbing use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-124-60M-RED" gtin="4006300810161">
+        <price>104.95</price>
+        <currency>EUR</currency>
+        <stock>59</stock>
+      </variant>
+      <variant sku="ACME-124-60M-GRE" gtin="4006300810162">
+        <price>109.95</price>
+        <currency>EUR</currency>
+        <stock>4</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-124-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-124-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-124-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">climbing</attribute>
+      <attribute name="colour">green</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-125">
+    <title>Alpine Backpack 35L Mk3</title>
+    <description>Alpine Backpack 35L Mk3 in stainless steel. Built for packs use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-125-35L-SLA" gtin="4006300810168">
+        <price>19.95</price>
+        <currency>EUR</currency>
+        <stock>12</stock>
+      </variant>
+      <variant sku="ACME-125-35L-OLI" gtin="4006300810169">
+        <price>24.95</price>
+        <currency>EUR</currency>
+        <stock>17</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-125-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">packs</attribute>
+      <attribute name="colour">slate</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-126">
+    <title>Headlamp 400lm Mk3</title>
+    <description>Headlamp 400lm Mk3 in ripstop nylon. Built for lighting use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-126-ONESIZE-BLA" gtin="4006300810175">
+        <price>54.95</price>
+        <currency>EUR</currency>
+        <stock>25</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-126-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-126-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">lighting</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-127">
+    <title>Down Jacket 700FP Mk3</title>
+    <description>Down Jacket 700FP Mk3 in merino wool. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-127-S-EMB" gtin="4006300810182">
+        <price>89.95</price>
+        <currency>EUR</currency>
+        <stock>38</stock>
+      </variant>
+      <variant sku="ACME-127-M-EMB" gtin="4006300810183">
+        <price>94.95</price>
+        <currency>EUR</currency>
+        <stock>43</stock>
+      </variant>
+      <variant sku="ACME-127-L-EMB" gtin="4006300810184">
+        <price>99.95</price>
+        <currency>EUR</currency>
+        <stock>48</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-127-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-127-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-127-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">ember</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-128">
+    <title>Trekking Poles Mk3</title>
+    <description>Trekking Poles Mk3 in recycled polyester. Built for accessories use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-128-120CM-CAR" gtin="4006300810189">
+        <price>124.95</price>
+        <currency>EUR</currency>
+        <stock>51</stock>
+      </variant>
+      <variant sku="ACME-128-130CM-CAR" gtin="4006300810190">
+        <price>129.95</price>
+        <currency>EUR</currency>
+        <stock>56</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-128-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">accessories</attribute>
+      <attribute name="colour">carbon</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-129">
+    <title>Waterproof Shell Mk3</title>
+    <description>Waterproof Shell Mk3 in anodised aluminium. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-129-M-STO" gtin="4006300810196">
+        <price>39.95</price>
+        <currency>EUR</currency>
+        <stock>4</stock>
+      </variant>
+      <variant sku="ACME-129-L-STO" gtin="4006300810197">
+        <price>44.95</price>
+        <currency>EUR</currency>
+        <stock>9</stock>
+      </variant>
+      <variant sku="ACME-129-M-MOS" gtin="4006300810198">
+        <price>49.95</price>
+        <currency>EUR</currency>
+        <stock>14</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-129-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-129-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">storm</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-130">
+    <title>Camp Stove Compact Mk3</title>
+    <description>Camp Stove Compact Mk3 in stainless steel. Built for cooking use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-130-ONESIZE-SIL" gtin="4006300810203">
+        <price>74.95</price>
+        <currency>EUR</currency>
+        <stock>17</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-130-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-130-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-130-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">cooking</attribute>
+      <attribute name="colour">silver</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-131">
+    <title>Trail Running Shoe Mk4</title>
+    <description>Trail Running Shoe Mk4 in ripstop nylon. Built for footwear use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-131-42-BLU" gtin="4006300810210">
+        <price>109.95</price>
+        <currency>EUR</currency>
+        <stock>30</stock>
+      </variant>
+      <variant sku="ACME-131-43-BLU" gtin="4006300810211">
+        <price>114.95</price>
+        <currency>EUR</currency>
+        <stock>35</stock>
+      </variant>
+      <variant sku="ACME-131-44-BLU" gtin="4006300810212">
+        <price>119.95</price>
+        <currency>EUR</currency>
+        <stock>40</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-131-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">footwear</attribute>
+      <attribute name="colour">blue</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-132">
+    <title>Insulated Water Bottle 750ml Mk4</title>
+    <description>Insulated Water Bottle 750ml Mk4 in merino wool. Built for hydration use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-132-750ML-STE" gtin="4006300810217">
+        <price>24.95</price>
+        <currency>EUR</currency>
+        <stock>43</stock>
+      </variant>
+      <variant sku="ACME-132-750ML-MAT" gtin="4006300810218">
+        <price>29.95</price>
+        <currency>EUR</currency>
+        <stock>48</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-132-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-132-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">hydration</attribute>
+      <attribute name="colour">matte black</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-133">
+    <title>Merino Base Layer Mk4</title>
+    <description>Merino Base Layer Mk4 in recycled polyester. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-133-S-CHA" gtin="4006300810224">
+        <price>59.95</price>
+        <currency>EUR</currency>
+        <stock>56</stock>
+      </variant>
+      <variant sku="ACME-133-M-CHA" gtin="4006300810225">
+        <price>64.95</price>
+        <currency>EUR</currency>
+        <stock>1</stock>
+      </variant>
+      <variant sku="ACME-133-L-CHA" gtin="4006300810226">
+        <price>69.95</price>
+        <currency>EUR</currency>
+        <stock>6</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-133-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-133-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-133-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">charcoal</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-134">
+    <title>Climbing Rope 60m Mk4</title>
+    <description>Climbing Rope 60m Mk4 in anodised aluminium. Built for climbing use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-134-60M-RED" gtin="4006300810231">
+        <price>94.95</price>
+        <currency>EUR</currency>
+        <stock>9</stock>
+      </variant>
+      <variant sku="ACME-134-60M-GRE" gtin="4006300810232">
+        <price>99.95</price>
+        <currency>EUR</currency>
+        <stock>14</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-134-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">climbing</attribute>
+      <attribute name="colour">green</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-135">
+    <title>Alpine Backpack 35L Mk4</title>
+    <description>Alpine Backpack 35L Mk4 in stainless steel. Built for packs use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-135-35L-SLA" gtin="4006300810238">
+        <price>129.95</price>
+        <currency>EUR</currency>
+        <stock>22</stock>
+      </variant>
+      <variant sku="ACME-135-35L-OLI" gtin="4006300810239">
+        <price>134.95</price>
+        <currency>EUR</currency>
+        <stock>27</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-135-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-135-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">packs</attribute>
+      <attribute name="colour">slate</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-136">
+    <title>Headlamp 400lm Mk4</title>
+    <description>Headlamp 400lm Mk4 in ripstop nylon. Built for lighting use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-136-ONESIZE-BLA" gtin="4006300810245">
+        <price>44.95</price>
+        <currency>EUR</currency>
+        <stock>35</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-136-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-136-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-136-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">lighting</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-137">
+    <title>Down Jacket 700FP Mk4</title>
+    <description>Down Jacket 700FP Mk4 in merino wool. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-137-S-EMB" gtin="4006300810252">
+        <price>79.95</price>
+        <currency>EUR</currency>
+        <stock>48</stock>
+      </variant>
+      <variant sku="ACME-137-M-EMB" gtin="4006300810253">
+        <price>84.95</price>
+        <currency>EUR</currency>
+        <stock>53</stock>
+      </variant>
+      <variant sku="ACME-137-L-EMB" gtin="4006300810254">
+        <price>89.95</price>
+        <currency>EUR</currency>
+        <stock>58</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-137-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">ember</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-138">
+    <title>Trekking Poles Mk4</title>
+    <description>Trekking Poles Mk4 in recycled polyester. Built for accessories use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-138-120CM-CAR" gtin="4006300810259">
+        <price>114.95</price>
+        <currency>EUR</currency>
+        <stock>1</stock>
+      </variant>
+      <variant sku="ACME-138-130CM-CAR" gtin="4006300810260">
+        <price>119.95</price>
+        <currency>EUR</currency>
+        <stock>6</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-138-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-138-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">accessories</attribute>
+      <attribute name="colour">carbon</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-139">
+    <title>Waterproof Shell Mk4</title>
+    <description>Waterproof Shell Mk4 in anodised aluminium. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-139-M-STO" gtin="4006300810266">
+        <price>29.95</price>
+        <currency>EUR</currency>
+        <stock>14</stock>
+      </variant>
+      <variant sku="ACME-139-L-STO" gtin="4006300810267">
+        <price>34.95</price>
+        <currency>EUR</currency>
+        <stock>19</stock>
+      </variant>
+      <variant sku="ACME-139-M-MOS" gtin="4006300810268">
+        <price>39.95</price>
+        <currency>EUR</currency>
+        <stock>24</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-139-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-139-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-139-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">storm</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-140">
+    <title>Camp Stove Compact Mk4</title>
+    <description>Camp Stove Compact Mk4 in stainless steel. Built for cooking use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-140-ONESIZE-SIL" gtin="4006300810273">
+        <price>64.95</price>
+        <currency>EUR</currency>
+        <stock>27</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-140-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">cooking</attribute>
+      <attribute name="colour">silver</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-141">
+    <title>Trail Running Shoe Mk5</title>
+    <description>Trail Running Shoe Mk5 in ripstop nylon. Built for footwear use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-141-42-BLU" gtin="4006300810280">
+        <price>99.95</price>
+        <currency>EUR</currency>
+        <stock>40</stock>
+      </variant>
+      <variant sku="ACME-141-43-BLU" gtin="4006300810281">
+        <price>104.95</price>
+        <currency>EUR</currency>
+        <stock>45</stock>
+      </variant>
+      <variant sku="ACME-141-44-BLU" gtin="4006300810282">
+        <price>109.95</price>
+        <currency>EUR</currency>
+        <stock>50</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-141-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-141-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">footwear</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-142">
+    <title>Insulated Water Bottle 750ml Mk5</title>
+    <description>Insulated Water Bottle 750ml Mk5 in merino wool. Built for hydration use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-142-750ML-STE" gtin="4006300810287">
+        <price>134.95</price>
+        <currency>EUR</currency>
+        <stock>53</stock>
+      </variant>
+      <variant sku="ACME-142-750ML-MAT" gtin="4006300810288">
+        <price>139.95</price>
+        <currency>EUR</currency>
+        <stock>58</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-142-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-142-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-142-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">hydration</attribute>
+      <attribute name="colour">matte black</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-143">
+    <title>Merino Base Layer Mk5</title>
+    <description>Merino Base Layer Mk5 in recycled polyester. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-143-S-CHA" gtin="4006300810294">
+        <price>49.95</price>
+        <currency>EUR</currency>
+        <stock>6</stock>
+      </variant>
+      <variant sku="ACME-143-M-CHA" gtin="4006300810295">
+        <price>54.95</price>
+        <currency>EUR</currency>
+        <stock>11</stock>
+      </variant>
+      <variant sku="ACME-143-L-CHA" gtin="4006300810296">
+        <price>59.95</price>
+        <currency>EUR</currency>
+        <stock>16</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-143-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">charcoal</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-144">
+    <title>Climbing Rope 60m Mk5</title>
+    <description>Climbing Rope 60m Mk5 in anodised aluminium. Built for climbing use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-144-60M-RED" gtin="4006300810301">
+        <price>84.95</price>
+        <currency>EUR</currency>
+        <stock>19</stock>
+      </variant>
+      <variant sku="ACME-144-60M-GRE" gtin="4006300810302">
+        <price>89.95</price>
+        <currency>EUR</currency>
+        <stock>24</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-144-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-144-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">climbing</attribute>
+      <attribute name="colour">green</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-145">
+    <title>Alpine Backpack 35L Mk5</title>
+    <description>Alpine Backpack 35L Mk5 in stainless steel. Built for packs use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-145-35L-SLA" gtin="4006300810308">
+        <price>119.95</price>
+        <currency>EUR</currency>
+        <stock>32</stock>
+      </variant>
+      <variant sku="ACME-145-35L-OLI" gtin="4006300810309">
+        <price>124.95</price>
+        <currency>EUR</currency>
+        <stock>37</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-145-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-145-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-145-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">packs</attribute>
+      <attribute name="colour">slate</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-146">
+    <title>Headlamp 400lm Mk5</title>
+    <description>Headlamp 400lm Mk5 in ripstop nylon. Built for lighting use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-146-ONESIZE-BLA" gtin="4006300810315">
+        <price>34.95</price>
+        <currency>EUR</currency>
+        <stock>45</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-146-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">lighting</attribute>
+      <attribute name="colour">black</attribute>
+      <attribute name="material">ripstop nylon</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-147">
+    <title>Down Jacket 700FP Mk5</title>
+    <description>Down Jacket 700FP Mk5 in merino wool. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-147-S-EMB" gtin="4006300810322">
+        <price>69.95</price>
+        <currency>EUR</currency>
+        <stock>58</stock>
+      </variant>
+      <variant sku="ACME-147-M-EMB" gtin="4006300810323">
+        <price>74.95</price>
+        <currency>EUR</currency>
+        <stock>3</stock>
+      </variant>
+      <variant sku="ACME-147-L-EMB" gtin="4006300810324">
+        <price>79.95</price>
+        <currency>EUR</currency>
+        <stock>8</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-147-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-147-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">ember</attribute>
+      <attribute name="material">merino wool</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-148">
+    <title>Trekking Poles Mk5</title>
+    <description>Trekking Poles Mk5 in recycled polyester. Built for accessories use, tested across a full season.</description>
+    <brand>Acme Summit</brand>
+    <variants>
+      <variant sku="ACME-148-120CM-CAR" gtin="4006300810329">
+        <price>104.95</price>
+        <currency>EUR</currency>
+        <stock>11</stock>
+      </variant>
+      <variant sku="ACME-148-130CM-CAR" gtin="4006300810330">
+        <price>109.95</price>
+        <currency>EUR</currency>
+        <stock>16</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-148-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-148-b.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-148-c.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">accessories</attribute>
+      <attribute name="colour">carbon</attribute>
+      <attribute name="material">recycled polyester</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-149">
+    <title>Waterproof Shell Mk5</title>
+    <description>Waterproof Shell Mk5 in anodised aluminium. Built for apparel use, tested across a full season.</description>
+    <brand>Acme Athletics</brand>
+    <variants>
+      <variant sku="ACME-149-M-STO" gtin="4006300810336">
+        <price>19.95</price>
+        <currency>EUR</currency>
+        <stock>24</stock>
+      </variant>
+      <variant sku="ACME-149-L-STO" gtin="4006300810337">
+        <price>24.95</price>
+        <currency>EUR</currency>
+        <stock>29</stock>
+      </variant>
+      <variant sku="ACME-149-M-MOS" gtin="4006300810338">
+        <price>29.95</price>
+        <currency>EUR</currency>
+        <stock>34</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-149-a.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">apparel</attribute>
+      <attribute name="colour">storm</attribute>
+      <attribute name="material">anodised aluminium</attribute>
+    </attributes>
+  </product>
+  <product code="ACME-150">
+    <title>Camp Stove Compact Mk5</title>
+    <description>Camp Stove Compact Mk5 in stainless steel. Built for cooking use, tested across a full season.</description>
+    <brand>Acme Basics</brand>
+    <variants>
+      <variant sku="ACME-150-ONESIZE-SIL" gtin="4006300810343">
+        <price>54.95</price>
+        <currency>EUR</currency>
+        <stock>37</stock>
+      </variant>
+    </variants>
+    <images>
+      <image url="https://cdn.acme.example/img/acme-150-a.jpg"/>
+      <image url="https://cdn.acme.example/img/acme-150-b.jpg"/>
+    </images>
+    <attributes>
+      <attribute name="category">cooking</attribute>
+      <attribute name="colour">silver</attribute>
+      <attribute name="material">stainless steel</attribute>
+    </attributes>
+  </product>
+</catalog>

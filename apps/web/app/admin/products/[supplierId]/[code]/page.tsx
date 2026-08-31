@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPool } from "@/lib/db";
-import { Shell, Card, Table, Cell, Pill, Empty, ago } from "../../../ui";
+import { Shell, Card, Table, Cell, Pill, Empty, Pager, paginate, ago } from "../../../ui";
 import { reverseDeactivationAction } from "../../../actions";
 import { requireAdmin } from "@/lib/guard";
 
@@ -18,6 +18,8 @@ interface Variant {
   attributes?: Record<string, unknown>;
 }
 
+const ISSUES_PER_PAGE = 25;
+
 /**
  * One product as the database actually holds it: the merged result of every
  * snapshot that has carried it. This is the surface for "what did we ingest
@@ -26,13 +28,16 @@ interface Variant {
  */
 export default async function ProductDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ supplierId: string; code: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   // Authorize before any data is fetched (see lib/guard.ts).
   await requireAdmin();
 
   const { supplierId, code: rawCode } = await params;
+  const { page: rawPage } = await searchParams;
   // The id reaches a uuid column; anything else is a bad link, not a fault.
   if (!UUID.test(supplierId)) notFound();
   const code = decodeURIComponent(rawCode);
@@ -47,11 +52,24 @@ export default async function ProductDetail({
   if (res.rowCount === 0) notFound();
   const p = res.rows[0];
 
+  // A product that has been failing to parse for months accumulates one Record
+  // Issue per run, so page these rather than cutting them off at 50.
+  const issueCount = await pool.query(
+    `select count(*)::int as n from issues where supplier_id = $1 and product_code = $2`,
+    [supplierId, code],
+  );
+  const issueTotal: number = issueCount.rows[0].n;
+  const {
+    page: issuePage,
+    pageCount: issuePageCount,
+    offset: issueOffset,
+  } = paginate(issueTotal, rawPage, ISSUES_PER_PAGE);
   const issues = await pool.query(
     `select id, scope, status, reason, evidence, resolution, created_at, run_id
      from issues
      where supplier_id = $1 and product_code = $2
-     order by created_at desc limit 50`,
+     order by created_at desc, id
+     limit ${ISSUES_PER_PAGE} offset ${issueOffset}`,
     [supplierId, code],
   );
 
@@ -185,7 +203,7 @@ export default async function ProductDetail({
         )}
       </Card>
 
-      <Card title={`Issues for this product (${issues.rowCount})`} flush>
+      <Card title={`Issues for this product (${issueTotal.toLocaleString()})`} flush>
         {issues.rowCount === 0 ? (
           <Empty title="No issues" hint="Nothing about this product has ever failed to parse." />
         ) : (
@@ -211,6 +229,17 @@ export default async function ProductDetail({
           </Table>
         )}
       </Card>
+
+      <Pager
+        page={issuePage}
+        pageCount={issuePageCount}
+        total={issueTotal}
+        perPage={ISSUES_PER_PAGE}
+        href={(p) => {
+          const b = `/admin/products/${supplierId}/${encodeURIComponent(code)}`;
+          return p > 1 ? `${b}?page=${p}` : b;
+        }}
+      />
     </Shell>
   );
 }

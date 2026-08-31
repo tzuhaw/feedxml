@@ -130,7 +130,7 @@ Driven through a real browser against the running app, not HTTP alone.
 
 ## F3. Adversarial suite — `scripts/e2e.mjs`
 
-58 cases, weighted toward what must NOT work. Method: run three rounds; when a
+62 cases, weighted toward what must NOT work. Method: run three rounds; when a
 round is clean, look for what it fails to cover, add those cases, run again.
 Six product bugs found this way — see [BUGS.md](BUGS.md).
 

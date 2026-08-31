@@ -9,12 +9,16 @@ import {
   Cell,
   StateBadge,
   Empty,
+  Pager,
+  paginate,
   ago,
   duration,
 } from "../ui";
 import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
+
+const PER_PAGE = 25;
 
 const STATES = [
   "pending",
@@ -33,16 +37,34 @@ const STATES = [
 export default async function Runs({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string }>;
+  searchParams: Promise<{ state?: string; page?: string }>;
 }) {
   // Authorize before any data is fetched (see lib/guard.ts).
   await requireAdmin();
 
-  const { state: rawState } = await searchParams;
+  const { state: rawState, page: rawPage } = await searchParams;
   // Params reach an enum cast, so only known values pass — a stale bookmark
   // must render an empty list, not a 500.
   const state = STATES.includes(rawState as (typeof STATES)[number]) ? rawState : undefined;
   const pool = getPool();
+
+  const [countRes, durations] = await Promise.all([
+    pool.query(
+      `select count(*)::int as n from feed_runs r
+       where ($1::text is null or r.state = $1::run_state)`,
+      [state ?? null],
+    ),
+    pool.query(
+      `select round(avg(extract(epoch from updated_at - created_at)))::int as avg_secs,
+              count(*)::int as n
+       from (select created_at, updated_at from feed_runs
+             where state = 'done' order by updated_at desc limit 20) recent`,
+    ),
+  ]);
+
+  const total: number = countRes.rows[0].n;
+  const { page, pageCount, offset } = paginate(total, rawPage, PER_PAGE);
+
   const runs = await pool.query(
     `select r.id, r.state, r.created_at, r.updated_at, r.attempt, r.error,
             r.counts, r.manual_reingest, r.superseded_by, s.name as supplier
@@ -50,18 +72,19 @@ export default async function Runs({
      join feeds f on f.id = r.feed_id
      join suppliers s on s.id = f.supplier_id
      where ($1::text is null or r.state = $1::run_state)
-     order by r.created_at desc limit 100`,
+     order by r.created_at desc, r.id
+     limit ${PER_PAGE} offset ${offset}`,
     [state ?? null],
-  );
-  const durations = await pool.query(
-    `select round(avg(extract(epoch from updated_at - created_at)))::int as avg_secs,
-            count(*)::int as n
-     from (select created_at, updated_at from feed_runs
-           where state = 'done' order by updated_at desc limit 20) recent`,
   );
 
   const filters = ["all", "done", "awaiting_review", "failed", "rejected", "superseded"];
   const stats = durations.rows[0];
+  const base = (f: string) => (f === "all" ? "/admin/runs" : `/admin/runs?state=${f}`);
+  const pageHref = (p: number) => {
+    const b = base(state ?? "all");
+    if (p <= 1) return b;
+    return `${b}${b.includes("?") ? "&" : "?"}page=${p}`;
+  };
 
   return (
     <Shell
@@ -69,17 +92,17 @@ export default async function Runs({
       nav="runs"
       sub={
         stats.n > 0
-          ? `Last ${stats.n} successful runs averaged ${stats.avg_secs}s`
-          : undefined
+          ? `Last ${stats.n} successful runs averaged ${stats.avg_secs}s${
+              pageCount > 1 ? ` · page ${page} of ${pageCount}` : ""
+            }`
+          : pageCount > 1
+            ? `Page ${page} of ${pageCount}`
+            : undefined
       }
     >
       <Chips>
         {filters.map((f) => (
-          <Chip
-            key={f}
-            href={f === "all" ? "/admin/runs" : `/admin/runs?state=${f}`}
-            active={f === "all" ? !state : state === f}
-          >
+          <Chip key={f} href={base(f)} active={f === "all" ? !state : state === f}>
             {f.replace(/_/g, " ")}
           </Chip>
         ))}
@@ -127,6 +150,8 @@ export default async function Runs({
           </Table>
         )}
       </Card>
+
+      <Pager page={page} pageCount={pageCount} total={total} perPage={PER_PAGE} href={pageHref} />
     </Shell>
   );
 }

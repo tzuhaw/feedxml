@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getPool } from "@/lib/db";
-import { Shell, Card, Chips, Chip, Table, Cell, Pill, Empty, ago } from "../ui";
+import { Shell, Card, Chips, Chip, Table, Cell, Pill, Empty, Pager, paginate, ago } from "../ui";
 import { resolveIssueAction } from "../actions";
 import { requireAdmin } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
+
+const PER_PAGE = 25;
 
 const SCOPES = ["all", "run", "product", "record"] as const;
 
@@ -15,47 +17,61 @@ const SCOPES = ["all", "run", "product", "record"] as const;
 export default async function Issues({
   searchParams,
 }: {
-  searchParams: Promise<{ scope?: string; status?: string }>;
+  searchParams: Promise<{ scope?: string; status?: string; page?: string }>;
 }) {
   // Authorize before any data is fetched (see lib/guard.ts).
   await requireAdmin();
 
-  const { scope: rawScope, status } = await searchParams;
+  const { scope: rawScope, status, page: rawPage } = await searchParams;
   // Params reach an enum cast — unknown values must not 500 the inbox.
   const scope = SCOPES.includes(rawScope as (typeof SCOPES)[number]) ? rawScope : "all";
   const showResolved = status === "resolved";
   const pool = getPool();
+
+  const args = [scope && scope !== "all" ? scope : null, showResolved ? "resolved" : "open"];
+  const filter = `where i.status = $2::issue_status
+       and ($1::text is null or i.scope = $1::issue_scope)`;
+
+  const countRes = await pool.query(
+    `select count(*)::int as n from issues i ${filter}`,
+    args,
+  );
+  const total: number = countRes.rows[0].n;
+  const { page, pageCount, offset } = paginate(total, rawPage, PER_PAGE);
+
   const issues = await pool.query(
     `select i.id, i.scope, i.status, i.product_code, i.reason, i.evidence,
             i.resolution, i.created_at, i.run_id, s.name as supplier
      from issues i
      left join suppliers s on s.id = i.supplier_id
-     where i.status = $2::issue_status
-       and ($1::text is null or i.scope = $1::issue_scope)
-     order by i.created_at desc limit 200`,
-    [scope && scope !== "all" ? scope : null, showResolved ? "resolved" : "open"],
+     ${filter}
+     order by i.created_at desc, i.id
+     limit ${PER_PAGE} offset ${offset}`,
+    args,
   );
+
+  const base = (s: string, resolved: boolean) =>
+    `/admin/issues?scope=${s}${resolved ? "&status=resolved" : ""}`;
+  const pageHref = (p: number) =>
+    `${base(scope ?? "all", showResolved)}${p > 1 ? `&page=${p}` : ""}`;
 
   return (
     <Shell
       title="Issues"
       nav="issues"
-      sub="Record issues keep the last known good product; they never drop it."
+      sub={
+        pageCount > 1
+          ? `${total.toLocaleString()} issues · page ${page} of ${pageCount}`
+          : "Record issues keep the last known good product; they never drop it."
+      }
     >
       <Chips>
         {SCOPES.map((s) => (
-          <Chip
-            key={s}
-            href={`/admin/issues?scope=${s}${showResolved ? "&status=resolved" : ""}`}
-            active={scope === s}
-          >
+          <Chip key={s} href={base(s, showResolved)} active={scope === s}>
             {s}
           </Chip>
         ))}
-        <Chip
-          href={`/admin/issues?scope=${scope}${showResolved ? "" : "&status=resolved"}`}
-          active={showResolved}
-        >
+        <Chip href={base(scope ?? "all", !showResolved)} active={showResolved}>
           {showResolved ? "resolved" : "show resolved"}
         </Chip>
       </Chips>
@@ -111,6 +127,8 @@ export default async function Issues({
           </Table>
         )}
       </Card>
+
+      <Pager page={page} pageCount={pageCount} total={total} perPage={PER_PAGE} href={pageHref} />
     </Shell>
   );
 }

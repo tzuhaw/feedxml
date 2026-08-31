@@ -286,3 +286,77 @@ export function bytes(n: number): string {
   }
   return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
+
+/**
+ * Page navigation.
+ *
+ * Renders nothing when there is only one page — a pager on a single page of
+ * results is chrome that tells the reader something they can already see. The
+ * caller supplies `href` so every other filter in the query string survives
+ * paging; forgetting one is how a pager silently resets a search.
+ */
+export function Pager({
+  page,
+  pageCount,
+  total,
+  perPage,
+  href,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  perPage: number;
+  href: (p: number) => string;
+}) {
+  if (pageCount <= 1) return null;
+  const first = (page - 1) * perPage + 1;
+  const last = Math.min(page * perPage, total);
+  return (
+    <nav className="pager" aria-label="Pagination">
+      <span className="pager-count">
+        {first.toLocaleString()}–{last.toLocaleString()} of {total.toLocaleString()}
+      </span>
+      <span className="pager-controls">
+        {page > 1 ? (
+          <Link className="pager-btn" href={href(page - 1)} rel="prev">
+            ← Prev
+          </Link>
+        ) : (
+          <span className="pager-btn is-disabled" aria-disabled="true">
+            ← Prev
+          </span>
+        )}
+        <span className="pager-page">
+          Page {page} of {pageCount}
+        </span>
+        {page < pageCount ? (
+          <Link className="pager-btn" href={href(page + 1)} rel="next">
+            Next →
+          </Link>
+        ) : (
+          <span className="pager-btn is-disabled" aria-disabled="true">
+            Next →
+          </span>
+        )}
+      </span>
+    </nav>
+  );
+}
+
+/**
+ * Paging arithmetic, in one place so every list page clamps the same way.
+ *
+ * The requested page is clamped to a real one: `?page=999`, `?page=-2` and
+ * `?page=banana` all resolve to a page that exists, so a stale bookmark shows
+ * the last page rather than an empty table that reads as "everything is gone".
+ */
+export function paginate(
+  total: number,
+  rawPage: string | undefined,
+  perPage: number,
+): { page: number; pageCount: number; offset: number } {
+  const pageCount = Math.max(1, Math.ceil(total / perPage));
+  const requested = Number.parseInt(rawPage ?? "1", 10);
+  const page = Math.min(Math.max(Number.isFinite(requested) ? requested : 1, 1), pageCount);
+  return { page, pageCount, offset: (page - 1) * perPage };
+}
