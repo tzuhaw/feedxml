@@ -4,8 +4,19 @@ import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s
 import { Upload } from "@aws-sdk/lib-storage";
 
 /**
- * Snapshot sources. Canonical: the R2 bucket via its S3-compatible API
- * (zero-egress reads). `file:` sources serve local demos and tests.
+ * Snapshot sources. Canonical: the object-storage bucket over the S3 API.
+ *
+ * The provider is a deployment choice, not a code one — **this deployment uses
+ * Supabase Storage**; Cloudflare R2 and the MinIO stand-in work unchanged. The
+ * env vars keep their `R2_*` names as the established contract (see
+ * apps/web/lib/r2.ts for the full note); read them as "object storage".
+ *
+ * The zero-egress property that originally justified R2 does NOT hold on
+ * Supabase Storage, and this function is exactly where it would have paid off:
+ * the worker re-reads the whole snapshot on every run and every retry.
+ * DESIGN.md decision 6 carries the trade-off.
+ *
+ * `file:` sources serve local demos and tests.
  */
 export async function openSnapshot(objectKey: string): Promise<Readable> {
   if (objectKey.startsWith("file:")) {

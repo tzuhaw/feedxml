@@ -30,7 +30,8 @@ function human(n: number): string {
 }
 
 /**
- * Browser → R2 directly on a presigned URL. The bytes never touch the Next
+ * Browser → bucket directly on a presigned URL (Supabase Storage on this
+ * deployment; any S3 provider works). The bytes never touch the Next
  * function, which is what makes a 100 MB file survivable on serverless; the
  * server only signs the target and, once the object is really there, registers
  * the run.

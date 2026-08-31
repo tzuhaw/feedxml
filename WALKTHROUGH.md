@@ -18,7 +18,7 @@ exactly what [CONTEXT.md](CONTEXT.md) says they mean.
 
 ## 1. The file lands in object storage
 
-`supplier → Cloudflare R2 · feeds/{supplier}/{timestamp}.xml`
+`supplier → object storage · feeds/{supplier}/{timestamp}.xml`
 
 Four channels deliver feeds, and every one ends at the same place: a single
 immutable object in a bucket. Suppliers push through a pre-signed multipart
@@ -153,7 +153,12 @@ the admin panel. The *ingestion* does not, and cannot: a multi-gigabyte parse
 exceeds any serverless execution window, and "tomorrow's feed may be larger" makes
 that ceiling the wrong thing to build against. So the heavy work is a container job
 whose only scale knob is running longer, and the catalog lives in Supabase Postgres.
-Snapshots live in R2, whose zero egress means the worker streams a 5GB file for free.
+Snapshots live in an S3-compatible bucket. The design specifies Cloudflare R2 for
+one reason — zero egress, so the worker can stream a 5GB file, and stream it again
+on every retry, for free. The deployed instance runs on Supabase Storage instead,
+to avoid a second vendor for a demo; that bills bandwidth, so the argument that
+picked R2 does not survive the substitution. It is four environment variables and
+a redeploy to switch back, and DESIGN.md decision 6 records why you would.
 
 **What isn't built, deliberately.** Fan-out parallelism, checkpoint-resume, image
 rehosting, cross-supplier product matching. Each has a recorded trigger. Fan-out's

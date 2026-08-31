@@ -40,10 +40,10 @@ without the last two, by design), then `npm run dev -w apps/web` and open
 http://localhost:3000/admin.
 
 Object storage is only needed to exercise the real push/pull/scrape channels:
-`docker compose --profile storage up -d` starts a MinIO stand-in for R2.
+`docker compose --profile storage up -d` starts a MinIO stand-in for object storage.
 `npm run db:down` stops everything; `npm run db:reset` rebuilds the schema.
 
-The worker reads a local file (`file:` source, demos and tests only) or R2 via the
+The worker reads a local file (`file:` source, demos and tests only) or the bucket via the
 S3 API. Deployment targets are Vercel for `apps/web` and a Cloud Run Job for
 `worker`, but neither is required to run or evaluate the system locally.
 

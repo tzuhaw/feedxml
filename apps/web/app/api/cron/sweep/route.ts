@@ -60,7 +60,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   // first, so unresolvable stragglers can never starve fresh uploads.
   //
   // Object storage being absent is a deployment STATE, not a fault: DESIGN.md
-  // makes R2 optional and the upload page already says so plainly. Letting this
+  // makes the bucket optional and the upload page already says so plainly. Letting this
   // step throw turned every sweep into a 500 and the schedule permanently red,
   // which is worse than useless — a safety net that always alarms is one nobody
   // reads. Skip and say so; the other four steps still run.

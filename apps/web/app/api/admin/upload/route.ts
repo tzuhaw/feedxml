@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  *   {action:"init", feedId, size}  → {objectKey, url}
  *   {action:"complete", objectKey} → run registered + launched
  *
- * The bytes go browser → R2 directly on a presigned URL; they never pass
+ * The bytes go browser → bucket directly on a presigned URL; they never pass
  * through this function. That keeps a 100 MB body off the serverless request
  * path, and it means the file lands in exactly the same place, under exactly
  * the same server-controlled key shape, as a supplier push — so from the

@@ -87,7 +87,7 @@ genuinely stopped selling that product, and it should be allowed to go inactive.
 
 ## 3. Replaying a Snapshot
 
-Every Snapshot is kept in R2 for 180 days, so any run can be replayed.
+Every Snapshot is kept in the bucket for 180 days, so any run can be replayed.
 
 - **Retry** re-executes the *same* run. Use it after an infrastructure failure.
   Available for `failed` runs, and for a run abandoned mid-flight (the worker
@@ -111,7 +111,7 @@ exactly the same path as a supplier push: same bucket, same
 thresholds. Use it to test a transform against a real file, to re-run a snapshot
 a supplier emailed you, or to onboard a supplier too small to integrate.
 
-- The file goes **browser → R2 directly** on a presigned URL. It never passes
+- The file goes **browser → bucket directly** on a presigned URL. It never passes
   through the app, which is why a 100 MB file is safe on serverless.
 - The 100 MB ceiling is for this page only, not for the system. It is what one
   request can carry sensibly; the supplier push channel uses multipart and
@@ -121,7 +121,18 @@ a supplier emailed you, or to onboard a supplier too small to integrate.
 - The supplier is taken from the **feed you pick**, never from the file or the
   browser, so an upload cannot land in another supplier's prefix.
 - **Requires `R2_*` to be configured.** Without it the page says so rather than
-  failing at the point of upload.
+  failing at the point of upload. Despite the names these are *any* S3-compatible
+  bucket — **this deployment uses Supabase Storage** (dashboard → Storage →
+  S3 Access Keys; endpoint
+  `https://<project-ref>.storage.supabase.co/storage/v1/s3`). Cloudflare R2 and
+  the local MinIO stand-in work through the same code unchanged. Set the four
+  values with `vercel env add <NAME> production`, then redeploy — env vars only
+  take effect on a new deployment.
+- **Bandwidth is not free here.** DESIGN.md chose R2 for zero egress and this
+  system re-reads whole snapshots on every run and retry; Supabase Storage bills
+  bandwidth. Irrelevant for manual uploads, material for a real 5GB feed on a
+  schedule. Moving to R2 is four env vars and a redeploy, no code change — see
+  the note on decision 6 in DESIGN.md.
 - **The bucket needs a CORS rule** allowing `PUT` from the panel's origin, or
   the browser blocks the transfer. This is the first thing to check if an upload
   reaches 0% and stops.

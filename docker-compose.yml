@@ -1,5 +1,5 @@
 # Local development and test dependencies. Nothing here is production:
-# production is Supabase (database), R2 (snapshots), Vercel (app) and a
+# production is Supabase (database AND snapshot storage), Vercel (app) and a
 # Cloud Run Job (worker).
 #
 #   npm run dev:setup           # Postgres on 55432 + schema, one command
@@ -29,7 +29,8 @@ services:
     volumes:
       - feedxml-pgdata:/var/lib/postgresql/data
 
-  # S3-compatible stand-in for Cloudflare R2, so the push/pull/scrape channels
+  # S3-compatible stand-in for the deployed bucket (Supabase Storage; the design
+  # specifies Cloudflare R2) so the push/pull/scrape channels
   # can be exercised locally. Console at http://localhost:9001 (minioadmin).
   storage:
     profiles: ["storage"]

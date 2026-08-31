@@ -1,6 +1,6 @@
 # Feed Ingestion System — Design
 
-> E-commerce product-feed ingestion: Next.js on Vercel + Supabase, worker on Cloud Run, files in Cloudflare R2.
+> E-commerce product-feed ingestion: Next.js on Vercel + Supabase, worker on Cloud Run, snapshot files in an S3-compatible bucket (specified as Cloudflare R2; deployed on Supabase Storage — see the note on decision 6).
 > Feeds today: ~5GB XML, ~1M products, full snapshots. Designed to scale by "running longer," multi-supplier from day one.
 >
 > Status: **agreed design** (architecture grilling + domain-modeling sessions, 2026-08-29). Canonical vocabulary lives in [CONTEXT.md](CONTEXT.md).
@@ -29,7 +29,8 @@ Bucket layout: `feeds/{supplier}/{timestamp}.{xml|ndjson}` (supplier = `supplier
 
 ## 3. The worker — one Cloud Run Job, sequential, boring on purpose
 
-Streams the file from R2 (zero egress) through a shared streaming core:
+Streams the file out of the bucket through a shared streaming core (this read is
+the one R2's zero egress was meant to make free — see the note on decision 6):
 
 ```
 file → node events → per-supplier transform → validation → staging writer
@@ -101,7 +102,7 @@ Notifications: email (e.g. Resend) on exactly two events — `awaiting_review` a
 
 | Data | Policy |
 |---|---|
-| Raw feed files (R2) | 180-day lifecycle rule (no compliance driver identified) |
+| Raw feed files (object storage) | 180-day lifecycle rule (no compliance driver identified) |
 | Staging rows | Keep only the last **successful** run per supplier (purged when the next succeeds); failed/halted runs keep staging as evidence until resolved |
 | Run ledger | Forever |
 | Resolved issues | Purge after 90 days |
@@ -139,7 +140,7 @@ replay procedures, and the supplier-onboarding checklist — is [RUNBOOK.md](RUN
 | 3 | Freshness | Within the hour; single sequential streaming worker |
 | 4 | Mid-ingest visibility | Staging table + set-based merge; seconds of mixed state OK |
 | 5 | Compute | Cloud Run Jobs |
-| 6 | Object storage | Cloudflare R2 (zero egress) |
+| 6 | Object storage | S3-compatible bucket. Specified as Cloudflare R2 (zero egress); **deployed on Supabase Storage** — see the note below |
 | 7 | Trigger | Hybrid self-report + safety-net cron; idempotent via `feed_runs` |
 | 8 | Identity & shape | `(supplier_id, product_code)` + per-variant GTIN captured; nested records |
 | 9 | Variant storage | jsonb now, promote to child tables later |
@@ -149,7 +150,7 @@ replay procedures, and the supplier-onboarding checklist — is [RUNBOOK.md](RUN
 | 13 | Panel & alerts | Full capability list; config-in-code; email on review/fail only |
 | 14 | SFTP timing | Stub until a real supplier needs it |
 | 15 | Supplier auth | Per-supplier API key, bcrypt-hashed |
-| 16 | Retention | R2 180d / staging last-success / ledger forever / issues 90d |
+| 16 | Retention | Snapshots 180d / staging last-success / ledger forever / issues 90d |
 | 17 | Parser strategy | Shared streaming core + per-supplier transform functions |
 | 18 | Missing vs Skipped | Sweep acts only on Missing (no record at all); Skipped keeps last known good; skip streak of 3 (per-feed config) raises a Product Issue |
 | 19 | Admin override | Reversing a deactivation pins the product (sweep-exempt, self-clearing on reappearance); pin is side-effect-only; reappearing products auto-reactivate |
@@ -163,3 +164,30 @@ replay procedures, and the supplier-onboarding checklist — is [RUNBOOK.md](RUN
 | 27 | Verdict states | `rejected` is distinct from `failed`, so a human decision is never confusable with a crash and Retry cannot resurrect a discarded Snapshot |
 | 28 | Run fencing | `attempt` is a monotonic fencing token: a Retry bumps it and the worker asserts it before halting, merging, or recording failure. Elapsed time never proves a process is dead, so workers heartbeat every 60s and a merge in flight is never restartable |
 | 29 | One active Feed per format | A Snapshot's object key names supplier and format but not channel, so two active same-format Feeds for one supplier are indistinguishable at routing. Made unrepresentable by a partial unique index rather than resolved by guessing |
+
+### Note on decision 6 — the storage provider changed, and the reasoning didn't survive intact
+
+The design specified **Cloudflare R2 for one concrete reason: zero egress.** This
+system re-downloads every byte it ingests — once per run, again on every retry,
+again on every manual re-ingest — so read bandwidth, not storage, is the cost
+that scales with a 5GB feed.
+
+The deployment uses **Supabase Storage** instead, because the project already
+has Supabase and adding a second vendor for an assessment is not worth the
+setup. That is a fine call, but it should be recorded honestly rather than
+written up as if nothing changed: **Supabase Storage bills bandwidth.** The
+specific argument that selected R2 does not apply to what is actually running.
+
+What this costs, concretely: a 5GB feed ingested hourly is ~120GB of egress a
+day. On Supabase's Pro tier that is far past the included quota; on R2 it is
+free. At demo scale — a few manual uploads — it is irrelevant.
+
+Nothing in the code depends on the choice. The storage layer is plain S3
+(`apps/web/lib/r2.ts`, `worker/src/source.ts`), all three providers work through
+it unchanged, and the env vars keep their `R2_*` names as the established
+contract. Moving to R2 later means changing four environment variables and
+redeploying — no code change. **Do that before any real supplier volume.**
+
+Two requirements every provider shares, learned the hard way (BUG-7):
+**path-style addressing**, and a **CORS rule allowing `PUT`** from the app's
+origin so the browser can upload straight to the bucket.

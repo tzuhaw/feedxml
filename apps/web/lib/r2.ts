@@ -9,6 +9,36 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+/**
+ * Object storage.
+ *
+ * This talks plain S3, so the provider is a deployment choice rather than a
+ * code one. **This deployment uses Supabase Storage**, whose S3-compatible
+ * endpoint looks like:
+ *
+ *     https://<project-ref>.storage.supabase.co/storage/v1/s3
+ *
+ * with an access key pair minted under Storage → S3 Access Keys. Cloudflare R2
+ * (what DESIGN.md originally specified) and MinIO (the local stand-in in
+ * docker-compose.yml) both work through the same code path unchanged.
+ *
+ * The env vars are still named `R2_*`. That is deliberate: they are the
+ * established contract across the worker, the workflows, .env.example and the
+ * deployment's own configuration, and renaming them buys nothing but a
+ * migration risk. Read them as "object storage", not "Cloudflare".
+ *
+ * Two things every provider here must agree on:
+ *   - path-style addressing (`forcePathStyle`, below) — Supabase and MinIO
+ *     require it, R2 accepts it;
+ *   - a CORS rule allowing PUT from the app's origin, because the browser
+ *     uploads straight to the bucket on a presigned URL.
+ *
+ * One caveat worth carrying, recorded in DESIGN.md decision 6: R2 was chosen
+ * for ZERO EGRESS, and this system re-downloads every byte it ingests. Supabase
+ * Storage does bill bandwidth, so that particular argument does not survive the
+ * swap — fine at demo scale, worth revisiting before real 5GB feeds.
+ */
+
 /** Whether object storage is wired up at all, so surfaces can say so plainly. */
 export function r2Configured(): boolean {
   return Boolean(

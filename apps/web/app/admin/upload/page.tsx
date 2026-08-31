@@ -45,7 +45,15 @@ export default async function Upload() {
         {!configured ? (
           <Empty
             title="Object storage is not configured"
-            hint="Set R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET, then reload."
+            hint={
+              <>
+                Set <code>R2_ENDPOINT</code>, <code>R2_ACCESS_KEY_ID</code>,{" "}
+                <code>R2_SECRET_ACCESS_KEY</code> and <code>R2_BUCKET</code>, then redeploy.
+                Despite the names, any S3-compatible bucket works — this deployment uses
+                Supabase Storage. The bucket also needs a CORS rule allowing PUT from this
+                origin, or uploads stall at 0%.
+              </>
+            }
           />
         ) : feeds.rowCount === 0 ? (
           <Empty
