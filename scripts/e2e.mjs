@@ -24,13 +24,34 @@ const ADMIN_PASS = process.env.E2E_PASS ?? "localdev";
 const pool = new pg.Pool({ connectionString: DB, max: 3 });
 const results = [];
 
-function record(id, area, name, ok, detail) {
-  results.push({ id, area, name, ok, detail });
-  const mark = ok ? "PASS" : "FAIL";
-  console.log(`  ${mark}  ${id.padEnd(5)} ${name}${ok ? "" : `  << ${detail}`}`);
+/**
+ * Three cases mutate credential state to prove a rule: A8 and A9 DELETE from
+ * admin_users (A9 deletes every operator) and G8 rewrites the session signing
+ * key, each restoring afterwards from a value held only in this process's
+ * memory. That is fine on a throwaway database and unacceptable on a live one:
+ * a crash, a dropped connection or a Ctrl-C between the delete and the restore
+ * leaves the deployment with NO operator accounts and only bcrypt hashes lost
+ * with the process — an unrecoverable lock-out.
+ *
+ * So they are opt-in. Set E2E_ALLOW_DESTRUCTIVE=1 to include them; otherwise
+ * they are reported as SKIP. A skipped case is never counted as a pass — a
+ * suite that quietly converts "did not run" into "passed" is the vacuous-test
+ * failure this suite exists to avoid.
+ */
+const ALLOW_DESTRUCTIVE = process.env.E2E_ALLOW_DESTRUCTIVE === "1";
+
+function record(id, area, name, ok, detail, skipped = false) {
+  results.push({ id, area, name, ok, detail, skipped });
+  const mark = skipped ? "SKIP" : ok ? "PASS" : "FAIL";
+  const suffix = skipped ? `  << ${detail}` : ok ? "" : `  << ${detail}`;
+  console.log(`  ${mark}  ${id.padEnd(5)} ${name}${suffix}`);
 }
 
-async function check(id, area, name, fn) {
+async function check(id, area, name, fn, opts = {}) {
+  if (opts.destructive && !ALLOW_DESTRUCTIVE) {
+    record(id, area, name, false, "destructive; set E2E_ALLOW_DESTRUCTIVE=1", true);
+    return;
+  }
   try {
     const { ok, detail } = await fn();
     record(id, area, name, ok, detail);
@@ -168,7 +189,7 @@ async function run(round) {
     );
     await pool.query(`delete from admin_users where username = 'e2e-other'`);
     return { ok: !body.includes("Needs attention"), detail: "revoked operator still reached the panel" };
-  });
+  }, { destructive: true });
 
   await check("A9", "auth", "no operators at all shows setup, never the panel", async () => {
     const token = await signToken(ADMIN_USER, Date.now() + 1e6);
@@ -183,7 +204,7 @@ async function run(round) {
       );
     }
     return { ok: !body.includes("Needs attention"), detail: "panel rendered with no operators configured" };
-  });
+  }, { destructive: true });
 
   // ---- B. Login endpoint ----------------------------------------------------
   await check("B1", "login", "correct credentials issue a session", async () => {
@@ -250,7 +271,30 @@ async function run(round) {
     ["C12", "upload-url with malformed supplier id", "/api/feeds/upload-url", { method: "POST", headers: { "content-type": "application/json", "x-supplier-id": "not-a-uuid", "x-api-key": "k" }, body: '{"action":"init"}' }, 401],
     ["C13", "upload-url with a well-formed but unknown supplier", "/api/feeds/upload-url", { method: "POST", headers: { "content-type": "application/json", "x-supplier-id": "00000000-0000-4000-8000-000000000000", "x-api-key": "k" }, body: '{"action":"init"}' }, 401],
   ];
+  /*
+   * Preflight: does THIS harness hold the deployment's secrets? Against a local
+   * stack we set them ourselves; against a real deployment they are sensitive
+   * and cannot be read back. Without this probe every secret-bearing case fails
+   * with "expected 400, got 401", which reads as a broken endpoint when the
+   * truth is a missing credential here. Distinguish the two explicitly.
+   */
+  const probe = await req("/api/feeds/ready", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-internal-secret": TRIGGER_SECRET },
+    body: '{"objectKey":"../../etc/passwd"}',
+  });
+  const haveTriggerSecret = probe.status !== 401;
+  const cronProbe = await req("/api/cron/sweep", {
+    headers: { authorization: `Bearer ${CRON_SECRET}` },
+  });
+  const haveCronSecret = cronProbe.status !== 401;
+
   for (const [id, name, path, init, expect] of api) {
+    const usesTriggerSecret = init.headers?.["x-internal-secret"] === TRIGGER_SECRET;
+    if (usesTriggerSecret && !haveTriggerSecret) {
+      record(id, "api", `${name} → ${expect}`, false, "harness lacks this deployment's INTERNAL_TRIGGER_SECRET", true);
+      continue;
+    }
     await check(id, "api", `${name} → ${expect}`, async () => {
       const r = await req(path, init);
       return { ok: r.status === expect, detail: `got ${r.status}` };
@@ -265,7 +309,9 @@ async function run(round) {
    * a bare "error: " that told the operator nothing. Assert the CONTRACT rather
    * than a status code, so this passes whether or not R2 is configured here.
    */
-  await check("C14", "api", "cron sweep reports every step, and never blankly", async () => {
+  if (!haveCronSecret) {
+    record("C14", "api", "cron sweep reports every step, and never blankly", false, "harness lacks this deployment's CRON_SECRET", true);
+  } else await check("C14", "api", "cron sweep reports every step, and never blankly", async () => {
     const r = await req("/api/cron/sweep", { headers: { authorization: `Bearer ${CRON_SECRET}` } });
     if (r.status === 401) return { ok: false, detail: "CRON_SECRET does not match the server's" };
     let body;
@@ -406,7 +452,7 @@ async function run(round) {
       ok: !body.includes("Needs attention"),
       detail: "session survived a key rotation (may be the 5-minute key cache — verify before treating as a bug)",
     };
-  });
+  }, { destructive: true });
 
   // ---- H. Panel surfaces render for an authenticated operator ---------------
   for (const [i, path] of ["/admin", "/admin/runs", "/admin/issues", "/admin/products", "/admin/feeds"].entries()) {
@@ -430,11 +476,17 @@ async function run(round) {
   });
 
   // ---- I. Trigger idempotency ------------------------------------------------
-  await check("I1", "api", "the same object key registers exactly one run", async () => {
-    const feed = await pool.query(
-      `select s.name from feeds f join suppliers s on s.id = f.supplier_id where f.active and f.format = 'xml' limit 1`,
-    );
-    if (feed.rowCount === 0) return { ok: true, detail: "no feed configured — skipped" };
+  const i1Feed = await pool.query(
+    `select s.name from feeds f join suppliers s on s.id = f.supplier_id where f.active and f.format = 'xml' limit 1`,
+  );
+  // Previously this returned ok:true when either precondition was missing —
+  // a case that cannot fail, reported as a pass. Say "skipped" instead.
+  if (i1Feed.rowCount === 0) {
+    record("I1", "api", "the same object key registers exactly one run", false, "no active xml feed on this deployment", true);
+  } else if (!haveTriggerSecret) {
+    record("I1", "api", "the same object key registers exactly one run", false, "harness lacks this deployment's INTERNAL_TRIGGER_SECRET", true);
+  } else await check("I1", "api", "the same object key registers exactly one run", async () => {
+    const feed = i1Feed;
     const key = `feeds/${feed.rows[0].name}/${Date.now()}.xml`;
     const post = () =>
       req("/api/feeds/ready", {
@@ -475,9 +527,19 @@ async function run(round) {
     return { ok: r.rows[0].n === 0, detail: `${r.rows[0].n} non-bcrypt password values` };
   });
 
-  const failed = results.filter((r) => !r.ok);
-  console.log(`\nRound ${round}: ${results.length - failed.length}/${results.length} passed`);
-  return { total: results.length, failed: failed.map((f) => `${f.id} ${f.name} — ${f.detail}`) };
+  // Skipped cases are excluded from the denominator, never folded into the
+  // numerator: "56/56 passed, 2 skipped" is honest, "58/58 passed" would not be.
+  const skipped = results.filter((r) => r.skipped);
+  const ran = results.filter((r) => !r.skipped);
+  const failed = ran.filter((r) => !r.ok);
+  const skipNote = skipped.length ? `, ${skipped.length} skipped (${skipped.map((s) => s.id).join(", ")})` : "";
+  console.log(`\nRound ${round}: ${ran.length - failed.length}/${ran.length} passed${skipNote}`);
+  return {
+    total: ran.length,
+    skipped: skipped.length,
+    skippedIds: skipped.map((s) => s.id),
+    failed: failed.map((f) => `${f.id} ${f.name} — ${f.detail}`),
+  };
 }
 
 const rounds = Number(process.argv[2] ?? 3);
@@ -487,7 +549,8 @@ await pool.end();
 
 console.log("\n=== SUMMARY ===");
 summary.forEach((s, i) => {
-  console.log(`Round ${i + 1}: ${s.total - s.failed.length}/${s.total} passed`);
+  const skipNote = s.skipped ? `, ${s.skipped} skipped (${s.skippedIds.join(", ")})` : "";
+  console.log(`Round ${i + 1}: ${s.total - s.failed.length}/${s.total} passed${skipNote}`);
   s.failed.forEach((f) => console.log(`   FAIL ${f}`));
 });
 process.exitCode = summary.some((s) => s.failed.length) ? 1 : 0;
