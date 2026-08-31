@@ -90,7 +90,8 @@ Production build served locally.
 | E3 | Trigger, malformed object key | 400 (client bug, distinct from 404) | PASS |
 | E4 | Trigger, unknown supplier | 404 (provisioning gap) | PASS |
 | E5 | Sweep, no secret | 401 | PASS |
-| E6 | Sweep, correct secret | 500 with per-step detail — R2 unconfigured locally, other four steps ran | PASS (by design: steps are independent, any failure alerts) |
+| E6 | Sweep, correct secret, storage **unconfigured** | 200, `discovered: "skipped: object storage not configured"`, other four steps ran | PASS |
+| E6b | Sweep, correct secret, storage **configured but unreachable** | 500, `discovered: "error: code: ECONNREFUSED"` — a real fault still alerts, and now says why | PASS |
 | E7 | Upload API, no auth | 401 | PASS |
 
 ## F. Production smoke — https://feedxml.vercel.app
@@ -129,7 +130,7 @@ Driven through a real browser against the running app, not HTTP alone.
 
 ## F3. Adversarial suite — `scripts/e2e.mjs`
 
-57 cases, weighted toward what must NOT work. Method: run three rounds; when a
+58 cases, weighted toward what must NOT work. Method: run three rounds; when a
 round is clean, look for what it fails to cover, add those cases, run again.
 Six product bugs found this way — see [BUGS.md](BUGS.md).
 

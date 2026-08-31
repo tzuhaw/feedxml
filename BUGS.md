@@ -115,6 +115,62 @@ Fix: `forcePathStyle: true` on both clients, which is what R2 documents and also
 what lets the MinIO stand-in work. Test: `D5b` in `scripts/upload-check.mjs`
 asserts the bucket is in the path and not in the host.
 
+---
+
+## Round 7 — the safety net was never running
+
+The `sweep` GitHub Actions schedule had failed on **every run since it was
+created** — five runs, five failures, none ever green. Two independent faults,
+stacked, which is why fixing either alone would not have helped.
+
+### BUG-8 · Absent object storage made the sweep permanently red
+**Severity: high — the safety net was inoperative.** Step 1 calls
+`listFeedObjectKeys()`, which throws when `R2_*` is unset. The catch marked the
+whole response `failed`, so the endpoint returned 500 on every invocation.
+Production has no `R2_*` configured, so the sweep could never succeed there.
+
+This is the wrong reading of the situation: DESIGN.md makes object storage
+optional, the upload page already treats its absence as a *state* rather than a
+fault, and the sweep's other four steps (relaunch, pull scheduling, stuck-run
+detection, retention) neither know nor care about a bucket. A monitor that
+alarms on every single run is one nobody reads — the alarm had stopped carrying
+information.
+
+Fix: skip step 1 when `r2Configured()` is false and report
+`discovered: "skipped: object storage not configured"`. Storage that IS
+configured but unreachable still fails loudly — that distinction is the point.
+
+### BUG-9 · Failed sweep steps reported `error: ` with no message
+Found while fixing BUG-8. AWS SDK network errors are an `AggregateError` whose
+`.message` is the empty string, with the real reason on `.code`
+(`ECONNREFUSED`). `fail()` read only `err.message`, so a genuinely broken sweep
+rendered as `{"discovered":"error: "}` — an alert that says only that something
+somewhere went wrong.
+
+Fix: `detail()` falls through message → cause → code → name until something is
+actually said.
+
+### The workflow could not report either of them
+`curl -fsS` fails with `curl: (22) The requested URL returned error: 401` and
+nothing else — it cannot distinguish a secret mismatch from a wrong URL from a
+sweep step genuinely failing. The workflow now captures the status and body and
+names the cause. Recorded here because the diagnosis took three tool calls that
+a one-line error message would have made unnecessary.
+
+Test: `C14` asserts the contract rather than a status code — every step present,
+and no step may fail *without saying why*. It passes with storage absent (200)
+and with storage broken (500), and fails on a blank `error:`.
+
+### Still outstanding (not a code fix)
+The schedule is **401** in production: the `CRON_SECRET` repo secret does not
+match the deployment's. That is a credential to re-sync, not a bug — see the
+summary in the runbook.
+
+Also observed: GitHub throttles `*/5` schedules hard. Five runs landed in ~10.5
+hours (roughly one every two hours), not one every five minutes. The sweep is
+idempotent so correctness holds, but "5-minute safety net" overstates it, and
+the workflow now says so in a comment.
+
 ### Not a product bug, but worth recording
 Two of the new upload checks initially failed on a second run because they
 asserted against fixture specifics — a literal supplier name, and a run count of

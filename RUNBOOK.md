@@ -204,8 +204,25 @@ the job's memory limit.
 - **No runs at all for a feed** — check Admin → Feeds (`active`?), then that
   the sweep is running (GitHub Actions → sweep workflow), then that
   `CLOUD_RUN_JOB_URL` is set. The sweep relaunches runs stuck in `pending`.
-- **The sweep workflow is red** — it returns 500 when any step fails; the body
-  names the step. Steps are independent, so the others still ran.
+- **The sweep workflow is red** — the workflow log now prints the HTTP status
+  and the response body and names the likely cause. Read that first:
+  - **401** — the `CRON_SECRET` **repo** secret (GitHub → Settings → Secrets)
+    does not match the `CRON_SECRET` **deployment** env var. They are two
+    separate values that must be identical. The route also returns 401 when the
+    env var is missing on the deployment entirely, which looks the same from
+    the outside — so check it is set at all, not just that it matches.
+  - **404** — `SWEEP_URL` does not point at `/api/cron/sweep` on a live
+    deployment.
+  - **500** — a step genuinely failed; the body names which one and why. Steps
+    are independent, so the others still ran.
+  - Object storage being **unconfigured** is no longer a failure: step 1 reports
+    `skipped: object storage not configured` and the sweep returns 200. Storage
+    that is configured but unreachable still fails, which is the intent.
+
+  Note the schedule is best-effort in a way worth knowing: GitHub throttles
+  `*/5` cron heavily — in practice this has fired every 2–3 hours, not every
+  five minutes. The sweep is idempotent so nothing breaks, but do not rely on
+  five-minute latency for anything.
 - **Ingestion is slow** — the design target is **15–30 minutes for 1M
   products**, and the freshness SLA is one hour. Judge against *that*, not
   against the lab number: the load test ingests 1M products in ~5 minutes, but

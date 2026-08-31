@@ -257,6 +257,40 @@ async function run(round) {
     });
   }
 
+  /*
+   * The sweep is the safety net every other mechanism leans on, so its failure
+   * reporting is load-bearing. Two real bugs lived here: absent object storage
+   * was treated as a fault (permanently red schedule, so nobody read it), and
+   * AWS SDK network errors carry an empty `.message`, rendering the summary as
+   * a bare "error: " that told the operator nothing. Assert the CONTRACT rather
+   * than a status code, so this passes whether or not R2 is configured here.
+   */
+  await check("C14", "api", "cron sweep reports every step, and never blankly", async () => {
+    const r = await req("/api/cron/sweep", { headers: { authorization: `Bearer ${CRON_SECRET}` } });
+    if (r.status === 401) return { ok: false, detail: "CRON_SECRET does not match the server's" };
+    let body;
+    try {
+      body = await r.json();
+    } catch {
+      return { ok: false, detail: `non-JSON response (${r.status})` };
+    }
+    const steps = ["discovered", "relaunched", "pullScheduled", "stuckFlagged", "purgedIssues"];
+    const missing = steps.filter((s) => !(s in body));
+    if (missing.length) return { ok: false, detail: `missing steps: ${missing.join(", ")}` };
+    // A step may legitimately fail; it may never fail WITHOUT SAYING WHY.
+    const blank = Object.entries(body).filter(
+      ([, v]) => typeof v === "string" && /^error:\s*$/.test(v),
+    );
+    if (blank.length) {
+      return { ok: false, detail: `blank error on: ${blank.map(([k]) => k).join(", ")}` };
+    }
+    // Storage being absent is a deployment state, not a fault.
+    if (typeof body.discovered === "string" && body.discovered.startsWith("skipped:") && r.status !== 200) {
+      return { ok: false, detail: `skipped storage should not fail the sweep (got ${r.status})` };
+    }
+    return { ok: true };
+  });
+
   // ---- D. Server actions are not reachable unauthenticated -------------------
   await check("D1", "actions", "admin server actions refuse without a session", async () => {
     const ids = actionIds().adminOnly;

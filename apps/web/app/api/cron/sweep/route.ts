@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { buildObjectKey, parseObjectKey } from "@feedxml/shared";
 import { getPool } from "@/lib/db";
 import { secretsMatch } from "@/lib/auth";
-import { listFeedObjectKeys } from "@/lib/r2";
+import { listFeedObjectKeys, r2Configured } from "@/lib/r2";
 import { registerAndLaunch, resolveFeedForKey, tryLaunch } from "@/lib/runs";
 
 export const runtime = "nodejs";
@@ -31,44 +31,72 @@ export async function GET(req: Request): Promise<NextResponse> {
   const pool = getPool();
   const summary: Record<string, unknown> = {};
   let failed = false;
+  /**
+   * Network errors from the AWS SDK arrive with an EMPTY `.message` and the
+   * real reason on `.cause`, so the obvious `err.message` renders the summary
+   * as a bare "error: " — the sweep alerts, and tells the operator nothing.
+   * Fall through name → cause → code until something is actually said.
+   */
+  const detail = (err: unknown): string => {
+    if (!(err instanceof Error)) return String(err) || "unknown error";
+    const parts: string[] = [];
+    if (err.message) parts.push(err.message);
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof Error && cause.message) parts.push(`cause: ${cause.message}`);
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "string" && code) parts.push(`code: ${code}`);
+    if (parts.length === 0 && err.name) parts.push(err.name);
+    return parts.join(" · ") || "unknown error";
+  };
+
   const fail = (step: string, err: unknown): void => {
     failed = true;
-    const message = err instanceof Error ? err.message : String(err);
     console.error(`[sweep] ${step} failed:`, err);
-    summary[step] = `error: ${message}`;
+    summary[step] = `error: ${detail(err)}`;
   };
 
   // 1. Discover unregistered bucket objects (covers supplier-direct uploads
   // whose `complete` call never came, and any missed self-report). Newest
   // first, so unresolvable stragglers can never starve fresh uploads.
-  try {
-    const keys = await listFeedObjectKeys();
-    let registered = 0;
-    if (keys.length > 0) {
-      const known = await pool.query(
-        `select object_key from feed_runs where object_key = any($1::text[])`,
-        [keys],
-      );
-      const knownSet = new Set(known.rows.map((r) => r.object_key));
-      const candidates = keys
-        .filter((k) => !knownSet.has(k))
-        .map((k) => ({ key: k, parsed: parseObjectKey(k) }))
-        .filter((c): c is { key: string; parsed: NonNullable<ReturnType<typeof parseObjectKey>> } =>
-          c.parsed !== null,
-        )
-        .sort((a, b) => b.parsed.timestamp - a.parsed.timestamp)
-        .slice(0, 20);
-      for (const { key } of candidates) {
-        const feed = await resolveFeedForKey(pool, key);
-        if (feed) {
-          await registerAndLaunch(pool, feed.feedId, key);
-          registered += 1;
+  //
+  // Object storage being absent is a deployment STATE, not a fault: DESIGN.md
+  // makes R2 optional and the upload page already says so plainly. Letting this
+  // step throw turned every sweep into a 500 and the schedule permanently red,
+  // which is worse than useless — a safety net that always alarms is one nobody
+  // reads. Skip and say so; the other four steps still run.
+  if (!r2Configured()) {
+    summary.discovered = "skipped: object storage not configured";
+  } else {
+    try {
+      const keys = await listFeedObjectKeys();
+      let registered = 0;
+      if (keys.length > 0) {
+        const known = await pool.query(
+          `select object_key from feed_runs where object_key = any($1::text[])`,
+          [keys],
+        );
+        const knownSet = new Set(known.rows.map((r) => r.object_key));
+        const candidates = keys
+          .filter((k) => !knownSet.has(k))
+          .map((k) => ({ key: k, parsed: parseObjectKey(k) }))
+          .filter(
+            (c): c is { key: string; parsed: NonNullable<ReturnType<typeof parseObjectKey>> } =>
+              c.parsed !== null,
+          )
+          .sort((a, b) => b.parsed.timestamp - a.parsed.timestamp)
+          .slice(0, 20);
+        for (const { key } of candidates) {
+          const feed = await resolveFeedForKey(pool, key);
+          if (feed) {
+            await registerAndLaunch(pool, feed.feedId, key);
+            registered += 1;
+          }
         }
       }
+      summary.discovered = registered;
+    } catch (err) {
+      fail("discovered", err);
     }
-    summary.discovered = registered;
-  } catch (err) {
-    fail("discovered", err);
   }
 
   // 2. Relaunch pending runs whose launch was missed.

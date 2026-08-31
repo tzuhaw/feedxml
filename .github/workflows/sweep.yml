@@ -2,6 +2,12 @@
 # are daily-only, so the frequent sweep runs from here; the Vercel daily cron
 # in apps/web/vercel.json is the backup. GitHub schedules are best-effort —
 # a missed tick is fine, the sweep is idempotent.
+#
+# OBSERVED, and worth knowing: GitHub throttles scheduled workflows hard. The
+# `*/5` below is an upper bound, not a promise — in practice this has fired
+# roughly every 2-3 hours, not every 5 minutes. Treat it as "eventually", and
+# do not let anything depend on 5-minute latency (DESIGN.md decision 7 assumes
+# only that the sweep is idempotent and eventually runs, which still holds).
 name: sweep
 on:
   schedule:
@@ -12,8 +18,43 @@ jobs:
   sweep:
     runs-on: ubuntu-latest
     steps:
+      # A bare `curl -f` fails with "curl: (22) ... error: 401" and nothing
+      # else, which is useless at 3am: it cannot tell a secret mismatch from a
+      # wrong URL from a genuinely failing sweep step. Capture the status and
+      # the body, and say which one it is. (Repo is private; the body is a
+      # counts-and-errors summary, safe to log here.)
       - name: Call the sweep endpoint
         run: |
-          curl -fsS -m 50 \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.SWEEP_URL }}"
+          body="$(mktemp)"
+          if ! code="$(curl -sS -m 50 -o "$body" -w '%{http_code}' \
+                -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+                "${{ secrets.SWEEP_URL }}")"; then
+            echo "::error::Could not reach the sweep endpoint at all (DNS, TLS, or timeout). Check the SWEEP_URL repo secret points at a live deployment."
+            exit 1
+          fi
+
+          echo "HTTP $code"
+          echo "--- response body ---"
+          cat "$body"; echo
+
+          case "$code" in
+            200)
+              echo "Sweep OK."
+              ;;
+            401)
+              echo "::error::401 unauthorized. CRON_SECRET in this repository does not match CRON_SECRET on the deployment — they are two separate values and must be identical. Also check it is set on the deployment at all: the route returns 401 when the env var is missing, which looks the same from here."
+              exit 1
+              ;;
+            404)
+              echo "::error::404. SWEEP_URL does not resolve to /api/cron/sweep on a live deployment."
+              exit 1
+              ;;
+            500)
+              echo "::error::500. The endpoint authenticated fine but at least one sweep step failed — the per-step detail is in the response body above. Each step is independent, so the others still ran."
+              exit 1
+              ;;
+            *)
+              echo "::error::Unexpected HTTP $code from the sweep endpoint."
+              exit 1
+              ;;
+          esac
