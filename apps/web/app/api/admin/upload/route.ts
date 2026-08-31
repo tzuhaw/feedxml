@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  *   {action:"complete", objectKey} → run registered + launched
  *
  * The bytes go browser → bucket directly on a presigned URL; they never pass
- * through this function. That keeps a 100 MB body off the serverless request
+ * through this function. That keeps a large body off the serverless request
  * path, and it means the file lands in exactly the same place, under exactly
  * the same server-controlled key shape, as a supplier push — so from the
  * worker's point of view an operator upload is not a special case at all.

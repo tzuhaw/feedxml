@@ -32,7 +32,7 @@ function human(n: number): string {
 /**
  * Browser → bucket directly on a presigned URL (Supabase Storage on this
  * deployment; any S3 provider works). The bytes never touch the Next
- * function, which is what makes a 100 MB file survivable on serverless; the
+ * function, so the file size is irrelevant to the serverless limits; the
  * server only signs the target and, once the object is really there, registers
  * the run.
  */

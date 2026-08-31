@@ -61,7 +61,7 @@ was unreachable. It already retried up to `MAX_ATTEMPTS` (default 3).
 | **Issues** | The inbox. Filter by scope; resolved are hidden by default. |
 | **Products** | The catalog, searchable by code or title, plus two cuts of it: **deactivated** (where you reverse a sweep decision) and **pinned**. Click any row for variants, images, attributes and that product's issue history. |
 | **Feeds** | Read-only per-feed config. Changing it means a migration. |
-| **Upload** | Push an XML snapshot by hand, up to 100 MB. See §3.1. |
+| **Upload** | Push an XML snapshot by hand, up to 10 MB. See §3.1. |
 
 ### The three Issue scopes
 
@@ -105,18 +105,18 @@ Both are on the run detail page.
 
 ### 3.1 Uploading a snapshot by hand
 
-**Upload** in the panel takes an XML file up to **100 MB** and puts it through
+**Upload** in the panel takes an XML file up to **10 MB** and puts it through
 exactly the same path as a supplier push: same bucket, same
 `feeds/{supplier}/{timestamp}.xml` key shape, same registration, same
 thresholds. Use it to test a transform against a real file, to re-run a snapshot
 a supplier emailed you, or to onboard a supplier too small to integrate.
 
 - The file goes **browser → bucket directly** on a presigned URL. It never passes
-  through the app, which is why a 100 MB file is safe on serverless.
-- The 100 MB ceiling is for this page only, not for the system. It is what one
+  through the app, so the file size is irrelevant to the serverless limits.
+- The 10 MB ceiling is for this page only, not for the system. It is what one
   request can carry sensibly; the supplier push channel uses multipart and
   handles the 5 GB feeds the design targets. If someone needs to load a feed
-  bigger than 100 MB by hand, put it in the bucket with `rclone`/`aws s3` and
+  bigger than 10 MB by hand, put it in the bucket with `rclone`/`aws s3` and
   call `POST /api/feeds/ready`.
 - The supplier is taken from the **feed you pick**, never from the file or the
   browser, so an upload cannot land in another supplier's prefix.

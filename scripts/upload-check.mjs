@@ -1,4 +1,16 @@
 import pg from "pg";
+import { readFileSync } from "node:fs";
+
+/*
+ * Read the cap out of its single source of truth rather than repeating the
+ * number here. A boundary test that hardcodes the limit silently stops testing
+ * the boundary the moment someone changes it.
+ */
+const uploadSrc = readFileSync(new URL("../apps/web/lib/upload.ts", import.meta.url), "utf8");
+const capMatch = /MAX_UPLOAD_BYTES\s*=\s*(\d+)\s*\*\s*1024\s*\*\s*1024/.exec(uploadSrc);
+if (!capMatch) throw new Error("could not read MAX_UPLOAD_BYTES from apps/web/lib/upload.ts");
+const MAX = Number(capMatch[1]) * 1024 * 1024;
+const MAX_LABEL = `${capMatch[1]}MB`;
 
 const BASE = "http://localhost:3130";
 const pool = new pg.Pool({
@@ -64,11 +76,11 @@ check("C2 zero size -> 400", r.status === 400, `got ${r.status}`);
 r = await post({ action: "init", feedId, size: -5 }, cookie);
 check("C3 negative size -> 400", r.status === 400, `got ${r.status}`);
 
-r = await post({ action: "init", feedId, size: 100 * 1024 * 1024 + 1 }, cookie);
-check("C4 one byte over 100MB -> 413", r.status === 413, `got ${r.status}`);
+r = await post({ action: "init", feedId, size: MAX + 1 }, cookie);
+check(`C4 one byte over ${MAX_LABEL} -> 413`, r.status === 413, `got ${r.status}`);
 
-r = await post({ action: "init", feedId, size: 100 * 1024 * 1024 }, cookie);
-check("C5 exactly 100MB -> allowed", r.status === 200, `got ${r.status}`);
+r = await post({ action: "init", feedId, size: MAX }, cookie);
+check(`C5 exactly ${MAX_LABEL} -> allowed`, r.status === 200, `got ${r.status}`);
 
 r = await post(
   { action: "init", feedId: "00000000-0000-4000-8000-000000000000", size: 100 },

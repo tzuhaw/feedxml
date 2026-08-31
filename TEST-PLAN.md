@@ -158,7 +158,7 @@ key-ownership rule. Found BUG-7 (see [BUGS.md](BUGS.md)).
 | Area | Cases | Covers |
 |---|---|---|
 | Authorization | A1–A2 | 401 without a session, and auth is checked *before* the body is parsed |
-| Size cap | C2–C5 | zero, negative, exactly 100 MB, and one byte over → 413 |
+| Size cap | C2–C5 | zero, negative, exactly at the cap, and one byte over → 413 (the cap is read from `lib/upload.ts`, so these track it) |
 | Feed binding | C1, C6, D2 | bad uuid, unknown feed, and the object key built from the **feed's** supplier rather than anything the client sent |
 | Signed URL | D3, D5, D5b, D6 | `content-length` is a signed header (so the cap is enforced by the signature), an expiry is present, addressing is path-style, and each upload gets a distinct key |
 | Completion | E1–E3 | path traversal → 400, nothing stored → 409, and a failed completion registers no run |
